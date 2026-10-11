@@ -1,0 +1,180 @@
+<!doctype html>
+<!-- Procur.AI: approved design for the Today screen (concept B, daily queue + inspector).
+     Static reference for IBM Bob. All numbers and supplier names are sample data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procur.AI — Today (design reference)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#1A1A1A}a:hover{color:#555}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; font-family: 'Geist', system-ui, sans-serif; color: #1A1A1A; background: #FFFFFF; display: flex; flex-direction: column">
+
+<header style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 28px; border-bottom: 1px solid #EDEDEA">
+<div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap">
+<span style="font-weight: 600; font-size: 16px">Procur.AI</span>
+<nav aria-label="Main" style="display: flex; gap: 4px; font-size: 14px">
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; background: #F2F2EF">Today</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">History</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Suppliers</a>
+</nav>
+</div>
+<button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Add requests</button>
+</header>
+
+<main style="width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 28px 28px 40px; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Requests · Sat, 10 Oct 2026</h1>
+<span style="font-size: 13px; color: #6B6B66">5 requests · 3 checked · 1 new item · 1 flagged</span>
+</div>
+<div style="display: flex; gap: 6px; font-size: 13px; flex-wrap: wrap">
+<span style="padding: 7px 12px; border-radius: 999px; background: #1A1A1A; color: #FFFFFF">All 5</span>
+<span style="padding: 7px 12px; border-radius: 999px; border: 1px solid #E0E0DB">Flagged 1</span>
+<span style="padding: 7px 12px; border-radius: 999px; border: 1px solid #E0E0DB">New 1</span>
+<span style="padding: 7px 12px; border-radius: 999px; border: 1px solid #E0E0DB">Checked 3</span>
+</div>
+</div>
+
+<div style="border: 1px solid #E6E6E2; border-radius: 12px; overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 980px">
+<thead>
+<tr style="background: #F7F7F5; text-align: left; font-size: 12px; color: #5E5E59">
+<th style="padding: 11px 16px; font-weight: 500">#</th>
+<th style="padding: 11px 16px; font-weight: 500">Item</th>
+<th style="padding: 11px 16px; font-weight: 500">Dept.</th>
+<th style="padding: 11px 16px; font-weight: 500; text-align: right">Qty</th>
+<th style="padding: 11px 16px; font-weight: 500; text-align: right">Quoted / unit</th>
+<th style="padding: 11px 16px; font-weight: 500; text-align: right">Reference / unit</th>
+<th style="padding: 11px 16px; font-weight: 500; text-align: right">Diff.</th>
+<th style="padding: 11px 16px; font-weight: 500">Checked via</th>
+<th style="padding: 11px 16px; font-weight: 500">Status</th>
+</tr>
+</thead>
+<tbody style="font-variant-numeric: tabular-nums">
+<tr style="border-top: 1px solid #EDEDEA; background: #FFF8F2; box-shadow: inset 3px 0 0 #9A3412">
+<td style="padding: 13px 16px; color: #6B6B66">01</td>
+<td style="padding: 13px 16px; font-weight: 500">Hydraulic oil ISO VG 46, 20L</td>
+<td style="padding: 13px 16px; color: #4A4A46">Warehouse</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">4 drum</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">1.450.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">1.120.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace; color: #9A3412; font-weight: 500">+29.5%</td>
+<td style="padding: 13px 16px; color: #4A4A46">History · 3 buys</td>
+<td style="padding: 13px 16px"><span style="font-size: 12px; font-weight: 500; color: #9A3412; padding: 4px 8px; border-radius: 6px; background: #FDEBDD">Flagged</span></td>
+</tr>
+<tr style="border-top: 1px solid #EDEDEA">
+<td style="padding: 13px 16px; color: #6B6B66">02</td>
+<td style="padding: 13px 16px">Solenoid valve 24V DC, 1/2"</td>
+<td style="padding: 13px 16px; color: #4A4A46">Maintenance</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">2 pcs</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">—</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">425.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace; color: #6B6B66">—</td>
+<td style="padding: 13px 16px; color: #4A4A46">Web · 3 quotes</td>
+<td style="padding: 13px 16px"><span style="font-size: 12px; font-weight: 500; color: #1E3A8A; padding: 4px 8px; border-radius: 6px; background: #E8EEFB">New item</span></td>
+</tr>
+<tr style="border-top: 1px solid #EDEDEA">
+<td style="padding: 13px 16px; color: #6B6B66">03</td>
+<td style="padding: 13px 16px">Bearing 6205 ZZ</td>
+<td style="padding: 13px 16px; color: #4A4A46">Maintenance</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">20 pcs</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">38.500</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">38.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">+1.3%</td>
+<td style="padding: 13px 16px; color: #4A4A46">History · 6 buys</td>
+<td style="padding: 13px 16px"><span style="font-size: 12px; color: #3F3F3B; padding: 4px 8px; border-radius: 6px; background: #F0F0EC">Checked</span></td>
+</tr>
+<tr style="border-top: 1px solid #EDEDEA">
+<td style="padding: 13px 16px; color: #6B6B66">04</td>
+<td style="padding: 13px 16px">Work gloves, cotton dotted</td>
+<td style="padding: 13px 16px; color: #4A4A46">Production</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">10 doz</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">96.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">98.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">−2.0%</td>
+<td style="padding: 13px 16px; color: #4A4A46">History · 4 buys</td>
+<td style="padding: 13px 16px"><span style="font-size: 12px; color: #3F3F3B; padding: 4px 8px; border-radius: 6px; background: #F0F0EC">Checked</span></td>
+</tr>
+<tr style="border-top: 1px solid #EDEDEA">
+<td style="padding: 13px 16px; color: #6B6B66">05</td>
+<td style="padding: 13px 16px">Packing tape 48mm, clear</td>
+<td style="padding: 13px 16px; color: #4A4A46">Warehouse</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">3 box</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">210.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">205.000</td>
+<td style="padding: 13px 16px; text-align: right; font-family: 'Geist Mono', monospace">+2.4%</td>
+<td style="padding: 13px 16px; color: #4A4A46">History · 9 buys</td>
+<td style="padding: 13px 16px"><span style="font-size: 12px; color: #3F3F3B; padding: 4px 8px; border-radius: 6px; background: #F0F0EC">Checked</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<section aria-label="Selected item" style="border: 1px solid #E6E6E2; border-radius: 12px; display: flex; flex-wrap: wrap">
+
+<div style="flex: 1 1 340px; box-sizing: border-box; padding: 24px; border-right: 1px solid #EDEDEA; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #6B6B66">Row 01 · Requested by Warehouse, 08:12</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Hydraulic oil ISO VG 46, 20L</h2>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; font-size: 14px">
+<div><dt style="font-size: 12px; color: #6B6B66">Quoted total</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">Rp 5.800.000</dd></div>
+<div><dt style="font-size: 12px; color: #6B6B66">At reference price</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">Rp 4.480.000</dd></div>
+<div><dt style="font-size: 12px; color: #6B6B66">Over reference</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace; color: #9A3412; font-weight: 500">Rp 1.320.000</dd></div>
+<div><dt style="font-size: 12px; color: #6B6B66">Quoting supplier</dt><dd style="margin: 2px 0 0">CV Sinar Pelumas</dd></div>
+<div><dt style="font-size: 12px; color: #6B6B66">Stock on record</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">3 drum</dd></div>
+<div><dt style="font-size: 12px; color: #6B6B66">Avg. monthly use</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">2 drum</dd></div>
+</dl>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #6B6B66">Flag reasons</span>
+<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6">
+<li>Price &gt; 15% above 3-buy average</li>
+<li>Stock covers ~6 weeks of use</li>
+</ul>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" style="height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Compare suppliers</button>
+<button type="button" style="height: 44px; padding: 0 16px; border: 1px solid #E0E0DB; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Approve</button>
+<button type="button" style="height: 44px; padding: 0 16px; border: 1px solid #E0E0DB; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Return to requester</button>
+</div>
+</div>
+
+<div style="flex: 999 1 460px; min-width: 0; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<h3 style="margin: 0; font-size: 14px; font-weight: 500">Purchase history</h3>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 460px">
+<thead>
+<tr style="text-align: left; font-size: 12px; color: #5E5E59; border-bottom: 1px solid #EDEDEA">
+<th style="padding: 8px 10px 10px 0; font-weight: 500">Date</th>
+<th style="padding: 8px 10px 10px; font-weight: 500">PO no.</th>
+<th style="padding: 8px 10px 10px; font-weight: 500">Supplier</th>
+<th style="padding: 8px 10px 10px; font-weight: 500; text-align: right">Qty</th>
+<th style="padding: 8px 0 10px 10px; font-weight: 500; text-align: right">Price / unit</th>
+</tr>
+</thead>
+<tbody style="font-variant-numeric: tabular-nums">
+<tr style="border-bottom: 1px solid #F2F2EF"><td style="padding: 11px 10px 11px 0">12 Aug 2026</td><td style="padding: 11px 10px; font-family: 'Geist Mono', monospace; color: #4A4A46">PO-0812</td><td style="padding: 11px 10px">PT Mitra Oli Jaya</td><td style="padding: 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">4</td><td style="padding: 11px 0 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">1.130.000</td></tr>
+<tr style="border-bottom: 1px solid #F2F2EF"><td style="padding: 11px 10px 11px 0">03 Jun 2026</td><td style="padding: 11px 10px; font-family: 'Geist Mono', monospace; color: #4A4A46">PO-0603</td><td style="padding: 11px 10px">PT Mitra Oli Jaya</td><td style="padding: 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">4</td><td style="padding: 11px 0 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">1.115.000</td></tr>
+<tr style="border-bottom: 1px solid #F2F2EF"><td style="padding: 11px 10px 11px 0">18 Mar 2026</td><td style="padding: 11px 10px; font-family: 'Geist Mono', monospace; color: #4A4A46">PO-0318</td><td style="padding: 11px 10px">CV Sinar Pelumas</td><td style="padding: 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">6</td><td style="padding: 11px 0 11px 10px; text-align: right; font-family: 'Geist Mono', monospace">1.115.000</td></tr>
+</tbody>
+<tfoot>
+<tr><td colspan="4" style="padding: 12px 10px 0 0; font-size: 13px; color: #5E5E59">3-buy average (reference)</td><td style="padding: 12px 0 0 10px; text-align: right; font-family: 'Geist Mono', monospace; font-weight: 500">1.120.000</td></tr>
+</tfoot>
+</table>
+</div>
+<p style="margin: 4px 0 0; font-size: 12px; color: #6B6B66">All prices in Rp. Sample data for the mockup.</p>
+</div>
+
+</section>
+</main>
+</div>
+</body>
+</html>
