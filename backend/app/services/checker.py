@@ -10,13 +10,15 @@ check_request(request_id, session) — runs check_item for every row in the
 dry_check_item(draft, session) — same pipeline on a plain dict; never writes
     Request, RequestItem, or Flag rows.
 
-Failures are caught and saved as status="pending" + check_error; they never
-propagate to the caller.
+Failures are caught and saved as status="pending" + check_error (short message);
+the full traceback is logged.  Failures never propagate to the caller.
 """
 from __future__ import annotations
 
+import logging
 import traceback
 from datetime import datetime, timezone
+from statistics import median
 from typing import TypedDict
 
 from sqlalchemy import select
@@ -27,7 +29,9 @@ from app.models import Flag, Item, Purchase, RequestItem, Stock, Supplier, WebQu
 from app.services import flags as flag_rules
 from app.services import pricing
 from app.services.matcher import match_item, normalize_name
-from app.services.web_check import get_web_quotes
+from app.services.web_check import get_web_quotes, link_quotes_to_row
+
+logger = logging.getLogger(__name__)
 
 
 def check_item(row: RequestItem, session: Session) -> None:
@@ -35,14 +39,20 @@ def check_item(row: RequestItem, session: Session) -> None:
     Run the full check pipeline for *row* and flush the changes to the
     session.  Does NOT commit — the caller decides when to commit.
 
-    On any unexpected exception the row is saved with status="pending"
-    and check_error set; no exception is re-raised.
+    Each check runs in a savepoint (begin_nested).  On any unexpected
+    exception the savepoint is rolled back, a short error message is saved
+    to check_error, status is set to "pending", and the full traceback is
+    logged.  No exception is re-raised.
     """
+    sp = session.begin_nested()
     try:
         _do_check(row, session)
+        sp.commit()
     except Exception:
+        sp.rollback()
+        logger.error("check_item failed for row id=%s:\n%s", row.id, traceback.format_exc())
         row.status = "pending"
-        row.check_error = traceback.format_exc()
+        row.check_error = f"check failed: {traceback.format_exc().splitlines()[-1]}"
         session.flush()
 
 
@@ -65,6 +75,7 @@ def _do_check(row: RequestItem, session: Session) -> None:  # noqa: C901
     ref_price: int | None = None
     checked_via: str = "none"
     history_count: int = 0
+    web_quotes_used: list[WebQuote] = []
 
     if item is not None:
         ref_price, history_count = pricing.reference_from_history(item.id, session)
@@ -73,18 +84,20 @@ def _do_check(row: RequestItem, session: Session) -> None:  # noqa: C901
 
     if ref_price is None:
         # Fall back to web quotes — may call Langflow for unmatched items
-        get_web_quotes(row, session)  # refresh relationship; sets check_error on failure
-        if row.check_error:
+        web_quotes_used, web_error = get_web_quotes(row.raw_name, session)
+        if web_error:
             # Langflow failed — save as pending and stop processing this row
             row.status = "pending"
+            row.check_error = web_error
             session.flush()
             return
-        web_ref = pricing.reference_from_web(
-            row.id, session, item_key=normalize_name(row.raw_name)
-        )
-        if web_ref is not None:
-            ref_price = web_ref
-            checked_via = "web"
+        if web_quotes_used:
+            prices = [wq.price_idr for wq in web_quotes_used if wq.price_idr > 0]
+            if prices:
+                ref_price = round(median(prices))
+                checked_via = "web"
+        # Link the quotes we used to this (already persisted) row
+        link_quotes_to_row(web_quotes_used, row.id, session)
 
     row.reference_unit_price_idr = ref_price
     row.checked_via = checked_via
@@ -243,6 +256,7 @@ def dry_check_item(draft: DryCheckDraft, session: Session) -> dict:  # noqa: C90
     ref_price: int | None = None
     checked_via: str = "none"
     history_count: int = 0
+    web_quotes_used: list[WebQuote] = []
 
     if item is not None:
         ref_price, history_count = pricing.reference_from_history(item.id, session)
@@ -251,18 +265,17 @@ def dry_check_item(draft: DryCheckDraft, session: Session) -> dict:  # noqa: C90
             result["history_count"] = history_count
 
     if ref_price is None:
-        # Fall back to web quotes via a transient RequestItem shim
-        shim = RequestItem(raw_name=draft["raw_name"])  # not added to session
-        get_web_quotes(shim, session)
-        if shim.check_error:
+        # Fall back to web quotes — no shim row needed, no session.refresh()
+        web_quotes_used, web_error = get_web_quotes(draft["raw_name"], session)
+        if web_error:
             result["status"] = "pending"
-            result["check_error"] = shim.check_error
+            result["check_error"] = web_error
             return result
-        item_key = normalize_name(draft["raw_name"])
-        web_ref = pricing.reference_from_web(None, session, item_key=item_key)
-        if web_ref is not None:
-            ref_price = web_ref
-            checked_via = "web"
+        if web_quotes_used:
+            prices = [wq.price_idr for wq in web_quotes_used if wq.price_idr > 0]
+            if prices:
+                ref_price = round(median(prices))
+                checked_via = "web"
 
     result["reference_unit_price_idr"] = ref_price
     result["checked_via"] = checked_via
@@ -373,14 +386,7 @@ def dry_check_item(draft: DryCheckDraft, session: Session) -> dict:  # noqa: C90
             for p in purchases
         ]
     elif checked_via == "web":
-        item_key = normalize_name(draft["raw_name"])
-        wq_rows = (
-            session.execute(
-                select(WebQuote).where(WebQuote.item_key == item_key)
-            )
-            .scalars()
-            .all()
-        )
+        # Use exactly the quotes that were used for the reference price
         result["web_quotes"] = [
             {
                 "seller": wq.seller,
@@ -389,7 +395,7 @@ def dry_check_item(draft: DryCheckDraft, session: Session) -> dict:  # noqa: C90
                 "price_idr": wq.price_idr,
                 "fetched_at": wq.fetched_at,
             }
-            for wq in wq_rows
+            for wq in web_quotes_used
         ]
 
     return result

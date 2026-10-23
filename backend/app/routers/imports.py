@@ -33,7 +33,7 @@ import csv
 import io
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -274,6 +274,9 @@ def download_template():
 # Import endpoint
 # ---------------------------------------------------------------------------
 
+_MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
 @router.post("/api/imports/purchases", response_model=ImportSummary)
 def import_purchases(
     file: UploadFile = File(...),
@@ -281,12 +284,33 @@ def import_purchases(
 ):
     filename = (file.filename or "").lower()
 
+    # Accept only .xlsx and .csv
+    if not (filename.endswith(".xlsx") or filename.endswith(".csv")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .xlsx and .csv files are supported",
+        )
+
+    raw = file.file.read()
+
+    # Reject files over 5 MB
+    if len(raw) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File is too large. Maximum size is 5 MB; received {len(raw) / 1024 / 1024:.1f} MB.",
+        )
+
     if filename.endswith(".xlsx"):
-        raw = file.file.read()
         parsed_rows, parse_errors = parse_xlsx(raw)
         return _insert_rows(parsed_rows, parse_errors, source="excel", db=db)
 
-    # CSV fallback (also handles .csv or any other extension)
-    content = file.file.read().decode("utf-8-sig")
+    # CSV path
+    try:
+        content = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File could not be decoded as UTF-8: {exc}",
+        ) from exc
     parsed_rows, parse_errors = _parse_csv(content)
     return _insert_rows(parsed_rows, parse_errors, source="csv", db=db)

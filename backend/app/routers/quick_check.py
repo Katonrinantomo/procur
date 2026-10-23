@@ -8,10 +8,13 @@ flag rows to the database.
 """
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import Supplier
 from app.schemas import QuickCheckResult
@@ -27,14 +30,23 @@ class QuickCheckIn(BaseModel):
 
 
 @router.post("/api/quick-check", response_model=list[QuickCheckResult])
-async def quick_check(body: QuickCheckIn, db: Session = Depends(get_db)):
+def quick_check(body: QuickCheckIn, db: Session = Depends(get_db)):
     """
     Parse *text* via the Organize flow, then dry-check each draft item.
-    Returns 502 if Langflow is unreachable.
+    Returns 502 if Langflow is unreachable or misconfigured.
     Per-item check errors are included inline (not a 502).
     """
+    if not settings.LANGFLOW_ORGANIZE_FLOW_ID:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "The Organize flow isn't configured. "
+                "Set LANGFLOW_ORGANIZE_FLOW_ID in backend/.env."
+            ),
+        )
+
     try:
-        drafts = await parse_text(body.text)
+        drafts = asyncio.run(parse_text(body.text))
     except LangflowError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

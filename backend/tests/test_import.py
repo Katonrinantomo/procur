@@ -93,3 +93,82 @@ class TestImportPurchases:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["line"] == 2
         assert result["inserted"] == 0
+
+
+# ---------------------------------------------------------------------------
+# M2 hardening tests
+# ---------------------------------------------------------------------------
+
+class TestImportHardening:
+    """POST /api/imports/purchases: unsupported extension, oversized file, bad encoding."""
+
+    def test_unsupported_extension_returns_400(self, seeded_db):
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("data.xls", io.BytesIO(b"dummy"), "application/octet-stream")},
+        )
+        assert resp.status_code == 400
+        assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
+
+    def test_pdf_extension_returns_400(self, seeded_db):
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("report.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")},
+        )
+        assert resp.status_code == 400
+        assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
+
+    def test_image_extension_returns_400(self, seeded_db):
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("photo.png", io.BytesIO(b"\x89PNG"), "image/png")},
+        )
+        assert resp.status_code == 400
+        assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
+
+    def test_oversized_csv_returns_413(self, seeded_db):
+        # 5 MB + 1 byte
+        big = io.BytesIO(b"x" * (5 * 1024 * 1024 + 1))
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("big.csv", big, "text/csv")},
+        )
+        assert resp.status_code == 413
+        assert "5 MB" in resp.json()["detail"]
+
+    def test_oversized_xlsx_returns_413(self, seeded_db):
+        big = io.BytesIO(b"x" * (5 * 1024 * 1024 + 1))
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("big.xlsx", big, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert resp.status_code == 413
+        assert "5 MB" in resp.json()["detail"]
+
+    def test_csv_exact_size_limit_is_accepted(self, seeded_db):
+        """A file of exactly 5 MB must not be rejected by the size check."""
+        # Build a valid-header CSV padded to exactly 5 MB with comment-like rows
+        header = "date,po_number,supplier,item,qty,unit,unit_price_idr\n"
+        padding = ("# " + "x" * 78 + "\n") * (
+            (5 * 1024 * 1024 - len(header.encode())) // 82
+        )
+        data = header + padding
+        # Trim or pad to exactly 5 MB
+        data = data.encode()[:5 * 1024 * 1024]
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("ok.csv", io.BytesIO(data), "text/csv")},
+        )
+        # Not 413 — may be 200 with 0 rows or parse errors (content is padded)
+        assert resp.status_code != 413
+
+    def test_non_utf8_csv_returns_400(self, seeded_db):
+        """A CSV that cannot be decoded as UTF-8 must return 400, not 500."""
+        # Latin-1 bytes that are invalid UTF-8
+        bad_bytes = io.BytesIO("café".encode("latin-1"))
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("bad_encoding.csv", bad_bytes, "text/csv")},
+        )
+        assert resp.status_code == 400
+        assert "UTF-8" in resp.json()["detail"]

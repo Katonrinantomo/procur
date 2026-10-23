@@ -4,7 +4,10 @@ Reference price computation.
 reference_from_history() — mean of the last N (default 3) purchase prices for
     a catalog item, rounded to the nearest whole rupiah.
 
-reference_from_web() — median of web quote prices attached to a request item.
+reference_from_web() — median of web quote prices for a given item_key.
+    NOTE: prefer computing the median directly from the quotes returned by
+    get_web_quotes() instead of calling this function; it exists for
+    stand-alone callers that already have an item_key.
 
 diff_pct() — (quoted − reference) / reference × 100, rounded to 1 decimal.
 """
@@ -16,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Purchase, RequestItem, WebQuote
+from app.models import Purchase, WebQuote
 
 
 def reference_from_history(item_id: int, session: Session) -> tuple[int | None, int]:
@@ -42,25 +45,19 @@ def reference_from_history(item_id: int, session: Session) -> tuple[int | None, 
 
 
 def reference_from_web(
-    request_item_id: int,
+    item_key: str,
     session: Session,
-    item_key: str | None = None,
 ) -> int | None:
     """
-    Return the median of cached web quote prices for this request item.
+    Return the median of cached web quote prices for the given item_key.
 
-    Quotes are looked up by request_item_id (rows created during this check)
-    OR by item_key (standalone cache rows seeded independently).
+    Only queries by item_key — never by request_item_id IS NULL.
     Returns None when there are no quotes.
     """
-    from sqlalchemy import or_
-    conditions = [WebQuote.request_item_id == request_item_id]
-    if item_key:
-        conditions.append(WebQuote.item_key == item_key)
     prices = (
         session.execute(
             select(WebQuote.price_idr).where(
-                or_(*conditions),
+                WebQuote.item_key == item_key,
                 WebQuote.price_idr > 0,
             )
         )

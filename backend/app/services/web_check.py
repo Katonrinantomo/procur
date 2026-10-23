@@ -1,8 +1,8 @@
 """
 Web price check (Flow 2).
 
-get_web_quotes(request_item, session) returns the list of WebQuote ORM objects
-for the given RequestItem.
+get_web_quotes(raw_name, session) returns the list of WebQuote ORM objects
+for the given item name.
 
 Cache lookup: reuse web_quotes rows whose item_key matches (exactly or via
 token_set_ratio ≥ MATCH_THRESHOLD) and that are at most WEB_QUOTE_MAX_AGE_DAYS
@@ -10,7 +10,10 @@ old.  If none exist, call the Web check Langflow flow, parse the JSON array,
 drop bad offers, keep at most 5, and save them with item_key set.
 
 On any Langflow failure the function returns whatever cached quotes exist
-(possibly empty) without raising.
+(possibly empty) without raising, and returns ([], error_message).  The
+caller is responsible for acting on the error.
+
+Callers must NOT pass an unsaved RequestItem or call session.refresh().
 """
 from __future__ import annotations
 
@@ -24,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import RequestItem, WebQuote
+from app.models import WebQuote
 from app.services.langflow_client import LangflowError, run_flow
 from app.services.matcher import normalize_name
 
@@ -87,13 +90,16 @@ def _call_flow(flow_input: str) -> list[dict]:
 
 
 def _save_quotes(
-    request_item_id: int | None,
     item_key: str,
     query: str,
     offers: list[dict],
     session: Session,
 ) -> list[WebQuote]:
-    """Validate, filter, persist, and return the new WebQuote rows."""
+    """Validate, filter, persist, and return the new WebQuote rows.
+
+    Quotes are saved with request_item_id=None (standalone cache rows).
+    Call link_quotes_to_row() after the RequestItem is flushed to associate them.
+    """
     saved: list[WebQuote] = []
     for offer in offers:
         url = offer.get("url") or ""
@@ -101,7 +107,7 @@ def _save_quotes(
         if not url or not isinstance(price_idr, int) or price_idr <= 0:
             continue
         wq = WebQuote(
-            request_item_id=request_item_id,
+            request_item_id=None,
             item_key=item_key,
             query=query,
             title=offer.get("title"),
@@ -117,30 +123,68 @@ def _save_quotes(
     return saved
 
 
-def get_web_quotes(request_item: RequestItem, session: Session) -> list[WebQuote]:
+def link_quotes_to_row(quotes: list[WebQuote], request_item_id: int, session: Session) -> None:
     """
-    Return web quotes for *request_item*, fetching from Langflow if no
-    recent cache exists.  Never raises; on Langflow failure the existing
-    (possibly empty) cache is returned and check_error is set on the row.
+    Associate *quotes* with the given saved RequestItem id.
+
+    For quotes that currently have no request_item_id (standalone cache rows),
+    sets the FK directly.  For quotes already linked to a different row,
+    creates a lightweight copy linked to this row so the inspector can find
+    them later via request_item_id.
     """
-    key = _cache_key(request_item.raw_name)
+    for wq in quotes:
+        if wq.request_item_id is None:
+            wq.request_item_id = request_item_id
+        elif wq.request_item_id != request_item_id:
+            # Quote is already owned by another row — clone it for this row
+            copy = WebQuote(
+                request_item_id=request_item_id,
+                item_key=wq.item_key,
+                query=wq.query,
+                title=wq.title,
+                url=wq.url,
+                seller=wq.seller,
+                price_idr=wq.price_idr,
+                fetched_at=wq.fetched_at,
+            )
+            session.add(copy)
+    session.flush()
+
+
+def get_web_quotes(raw_name: str, session: Session) -> tuple[list[WebQuote], str | None]:
+    """
+    Return (quotes, error_message) for *raw_name*.
+
+    Tries cached quotes first (fuzzy name match within WEB_QUOTE_MAX_AGE_DAYS).
+    If none exist, calls the Langflow Web check flow.
+
+    On Langflow failure: returns whatever stale quotes exist plus an error string.
+    The caller decides whether to treat this as fatal (check_error) or silent.
+
+    Never calls session.refresh() and never accesses ORM relationships.
+    """
+    key = _cache_key(raw_name)
 
     cached = _fetch_cached(key, session)
     if cached:
-        return cached
+        return cached, None
 
     # No recent cache — call the flow
     try:
-        offers = _call_flow(_flow_input(request_item.raw_name))
+        offers = _call_flow(_flow_input(raw_name))
     except (LangflowError, Exception) as exc:  # noqa: BLE001
         msg = f"web_check failed: {exc}"
         logger.warning(msg)
-        request_item.check_error = msg
-        session.flush()
-        # Return any stale quotes that might exist for this item
-        session.refresh(request_item)
-        return list(request_item.web_quotes)
+        # Return any stale quotes for this key (skips the age filter)
+        stale = (
+            session.execute(
+                select(WebQuote)
+                .where(WebQuote.item_key == key)
+            )
+            .scalars()
+            .all()
+        )
+        return stale, msg
 
-    new_quotes = _save_quotes(request_item.id, key, key, offers, session)
-    session.refresh(request_item)
-    return new_quotes
+    new_quotes = _save_quotes(key, key, offers, session)
+    return new_quotes, None

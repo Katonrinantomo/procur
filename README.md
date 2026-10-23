@@ -1,6 +1,6 @@
 # Procur.AI
 
-Procurement price-check app for a manufacturing demo. Purchasing pastes the day's requests, Langflow turns the text into rows, the backend checks each row against the database, and the screen shows what needs a second look.
+Procurement price-check web app for a manufacturing demo. Purchasing pastes the day's requests, the Organize flow turns them into structured line items, and the backend checks each row against purchase history and live web prices — flagging anything that looks over budget.
 
 ---
 
@@ -13,14 +13,8 @@ Browser  ──►  Backend (FastAPI)  ──►  PostgreSQL
                      └──►  Langflow Flow 2: Web Check  ──►  Claude Haiku 5.5
 ```
 
-**One request, end to end:**
-
-1. Purchasing pastes messy text in the web app. The backend sends it to **Flow 1**, and Claude Haiku returns structured line items as JSON (item, qty, unit, department, quoted price, supplier).
-2. The user checks the preview and saves. The backend stores the request and its rows in PostgreSQL.
-3. For each row, the backend matches the item catalog using fuzzy name matching and computes a reference price from the last 3 purchases. Items with no purchase history go to **Flow 2**, which searches the web for current prices (cached 7 days).
-4. Plain Python flag rules set each row's status: **Checked**, **New item**, or **Flagged** (with reasons). The queue table and inspector read everything back from the database.
-
-**Key rule: the model handles language; the backend handles numbers.** Haiku reads messy text and summarises web results. Every price, percentage, and flag is computed in Python from the database — never by the model.
+**Key rule: the model handles language; the backend handles numbers.**
+Claude reads messy text and summarises web results. Every price, percentage, and flag is computed in Python from the database — never by the model.
 
 ### Tech stack
 
@@ -31,8 +25,7 @@ Browser  ──►  Backend (FastAPI)  ──►  PostgreSQL
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
 | Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
-| Web search | Langflow Web Search component (DuckDuckGo, no API key) |
-| Tests | pytest + FastAPI TestClient |
+| Tests | pytest, 189 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
 
 ### Key source files
 
@@ -49,166 +42,190 @@ Browser  ──►  Backend (FastAPI)  ──►  PostgreSQL
 
 ## Prerequisites
 
-- **Docker** — for PostgreSQL
+- **Docker Desktop** — for PostgreSQL
 - **Python 3.11+**
 - **Node.js 18+**
-- **[uv](https://docs.astral.sh/uv/)** — for Langflow (`pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **[uv](https://docs.astral.sh/uv/)** — to run Langflow  
+  Install: `pip install uv`
+- A **Claude API key** from [console.anthropic.com](https://console.anthropic.com)
 
 ---
 
 ## Setup
 
-### 1. Clone and configure environment
+All commands below are **PowerShell** (Windows). Adapt as needed for macOS/Linux.
 
-```bash
-git clone <repo-url>
-cd procur
-cp .env.example .env
+### 1. Start PostgreSQL
+
+From the repo root:
+
+```powershell
+docker compose up -d
 ```
 
-Open `.env` and fill in the values — you will get the Langflow IDs and API key in step 4 below.
+Starts PostgreSQL 16 on port 5432. Username, password, and database are all `procur`.
+
+### 2. Configure the backend environment
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+Open `backend\.env` and fill in the Langflow values — you will get them in step 4.
 
 ```
 DATABASE_URL=postgresql+psycopg2://procur:procur@localhost:5432/procur
 LANGFLOW_URL=http://localhost:7860
-LANGFLOW_API_KEY=        ← fill in after step 4
-LANGFLOW_ORGANIZE_FLOW_ID=   ← fill in after step 4
-LANGFLOW_WEBCHECK_FLOW_ID=   ← fill in after step 4
+LANGFLOW_API_KEY=          ← fill in after step 4
+LANGFLOW_ORGANIZE_FLOW_ID= ← fill in after step 4
+LANGFLOW_WEBCHECK_FLOW_ID= ← fill in after step 4
 ```
 
-### 2. Start PostgreSQL
+> **SQLite fallback** — no Docker needed:
+> set `DATABASE_URL=sqlite:///./procur.db` in `backend\.env`.
 
-```bash
-docker compose up -d
-```
+### 3. Install and migrate the backend
 
-This starts a PostgreSQL 16 container on port 5432 with user/password/db all set to `procur`.
-
-### 3. Backend
-
-```bash
-cd backend
+```powershell
+# still inside backend\
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Apply migrations
 alembic upgrade head
+```
 
-# Seed demo data (full state with today's flagged request)
+Seed demo data (purchase history + stock levels + today's 5-row flagged request):
+
+```powershell
 python -m app.seed --reset
+```
 
-# Start the API server
+Start the API server:
+
+```powershell
 uvicorn app.main:app --reload
 ```
 
-- API: `http://localhost:8000`
+- API root: `http://localhost:8000`
 - Interactive docs: `http://localhost:8000/docs`
-- Health check (shows Langflow status): `http://localhost:8000/api/health`
+- Health / Langflow status: `http://localhost:8000/api/health`
 
-### 4. Langflow and flows
+### 4. Start Langflow and import the flows
 
-```bash
-# In a separate terminal, from the repo root
+Open a **second** PowerShell window from the repo root:
+
+```powershell
 uv run langflow run
 ```
 
 Langflow opens at `http://localhost:7860`.
 
-**One-time setup:**
+**One-time setup (do this once):**
 
-1. **Add the Claude API key:**  
-   Go to **Profile → Settings → Model Providers → Anthropic**, paste your Claude API key, and save. This lets both flows call `claude-haiku-5-5`.
+1. **Add your Claude API key:**
+   Go to **Profile → Settings → Model Providers → Anthropic**, paste your key, and save.
+   Both flows call `claude-haiku-5-5` through this key.
 
-2. **Import the flows:**  
-   In Langflow, click **+ New flow → Import** and import both files:
-   - `langflow/Organize.json` — parses messy text into line items
+2. **Import the two flows:**
+   Click **+ New flow → Import** and load each file:
+   - `langflow/Organize.json` — parses messy purchase text into structured line items
    - `langflow/Web Check.json` — searches the web for prices of unknown items
 
-3. **Copy the flow IDs:**  
-   Open each flow. The flow ID is in the URL: `http://localhost:7860/flow/<uuid>`. Copy the UUID for each flow and set it in `.env`:
+3. **Copy the flow IDs:**
+   Open each flow. The UUID is in the URL:
+   `http://localhost:7860/flow/<uuid>`
+   Set the UUIDs in `backend\.env`:
    ```
    LANGFLOW_ORGANIZE_FLOW_ID=<uuid from Organize flow>
    LANGFLOW_WEBCHECK_FLOW_ID=<uuid from Web Check flow>
    ```
 
-4. **Create a Langflow API key:**  
-   Go to **Profile → Settings → Langflow API Keys → Add New**, copy the key, and set it in `.env`:
+4. **Create a Langflow API key:**
+   Go to **Profile → Settings → Langflow API Keys → Add New**, copy the key:
    ```
    LANGFLOW_API_KEY=<your-key>
    ```
 
 5. **Restart the backend** so it picks up the new `.env` values:
-   ```bash
+   ```powershell
    # Ctrl+C the uvicorn process, then:
    uvicorn app.main:app --reload
    ```
 
-### 5. Frontend
+### 5. Start the frontend
 
-```bash
+Open a **third** PowerShell window:
+
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-The app is at `http://localhost:5173`. The Vite dev server proxies `/api/*` to `http://localhost:8000`.
+The app is at `http://localhost:5173`.
+The Vite dev server proxies all `/api/*` requests to `http://localhost:8000`.
+
+---
+
+## Features
+
+| Screen | What it does |
+|---|---|
+| **Today** | Shows today's request queue sorted by status (Flagged → New → Checked). Click any row to open the inspector. |
+| **Add requests** | Paste a WhatsApp/email message. The Organize flow parses it into line items; you review the preview and save. |
+| **Quick check** | Dry-run a single item — checks it against history and web prices without saving anything. |
+| **History** | Browse all past request items with filters for date range, status, and supplier. |
+| **Excel import** | Upload a purchase history file (.xlsx or .csv, max 5 MB) to populate the reference-price database. Download the template from the import page. |
 
 ---
 
 ## Running tests
 
-All backend tests use an in-memory SQLite database — no PostgreSQL or Langflow required.
+All tests use an in-process SQLite database — no PostgreSQL or Langflow required.
 
-```bash
+```powershell
 cd backend
-pytest                           # run all 87 tests
-pytest tests/test_pricing.py     # run a single file
-pytest -v                        # verbose output
+pytest                        # run all 189 tests
+pytest tests/test_pricing.py  # run a single file
+pytest -v                     # verbose output
 ```
 
 ---
 
 ## Seeding demo data
 
-```bash
+```powershell
 cd backend
 
-# Full demo state: seeds purchase history, stock levels, and today's 5-row
-# request. The hydraulic oil row is automatically flagged at +29.5%.
+# Full demo state: purchase history, stock levels, and today's 5-row request.
+# The hydraulic oil row is automatically flagged at +29.5%.
 python -m app.seed --reset
 
-# Empty-today state: seeds history and stock but no today's request.
-# Use this as the starting point for the demo video.
+# Empty-today state: history and stock only, no today's request.
+# Use this as the starting point for the live demo.
 python -m app.seed --reset --empty-today
 ```
 
-Both commands finish in under 2 seconds.
+Both commands complete in under 2 seconds.
 
 ---
 
-## Demo script
-
-*Total: ~3 minutes*
+## Demo script (~3 minutes)
 
 ### 1. The problem (20 s)
 
-A manufacturer buys daily from small suppliers with no purchase database and unreliable warehouse stock records. Overpaying goes unnoticed.
+A manufacturer buys daily from small suppliers with no purchase database and unreliable stock records. Overpaying goes unnoticed.
 
-### 2. Organize (40 s)
+### 2. Add a request (40 s)
 
 Start from the empty-today state:
 
-```bash
+```powershell
 python -m app.seed --reset --empty-today
 ```
 
-In the app, click **Add requests** and paste the morning's WhatsApp message:
+In the app, open **Add requests** and paste the morning's WhatsApp message:
 
 ```
 1. Hydraulic oil ISO VG 46, 20L – 4 drum, Warehouse, Rp 1.450.000/drum, CV Sinar Pelumas
@@ -218,34 +235,35 @@ In the app, click **Add requests** and paste the morning's WhatsApp message:
 5. Packing tape 48mm, clear – 3 box, Warehouse, Rp 210.000/box
 ```
 
-Click **Organize** — Claude Haiku turns the text into clean line items.
+Click **Organize** → Claude Haiku structures the text. Click **Save**.
 
-### 3. Check and mark (60 s)
+### 3. Inspect a flagged row (60 s)
 
-Click **Save**. The queue fills. The hydraulic oil row is immediately flagged at **+29.5%**. Open it in the inspector:
+The queue fills. The hydraulic oil row is immediately flagged at **+29.5%**. Open it:
 
-- 3 past purchases, last-3 average = Rp 1.120.000
-- Quoted at Rp 1.450.000 → **Rp 1.320.000 over reference** on 4 drums
-- Stock already covers ~6 weeks (flag: stock cover high)
+- 3 past purchases → last-3 average = Rp 1.120.000
+- Quoted at Rp 1.450.000 → **Rp 1.320.000 over reference on 4 drums**
+- Stock already covers ~6 weeks (STOCK_COVER_HIGH flag)
 
-### 4. New item (30 s)
+### 4. New item — web price (30 s)
 
-The solenoid valve has no purchase history. Procur.AI searched the web: 3 quotes, **median Rp 425.000**.
+The solenoid valve has no purchase history. Procur.AI searched the web: 3 quotes, **median Rp 425.000**. No flag — the quoted price is within range.
 
 ### 5. Decide (20 s)
 
-Use **Compare suppliers**, **Return to requester** (oil), and **Approve** (rest).
+Use **Return to requester** on the oil row and **Approve** the rest.
 
 ### 6. Under the hood (20 s)
 
-Show the two Langflow flows running on Claude Haiku. Point out: the model reads text; every number — price, percentage, flag — comes from the database.
+Show the two Langflow flows in the browser. Point out that the model only reads text and summarises web results — every number is computed in Python.
 
 ---
 
-## Fallbacks
+## Known limits
 
-| Situation | Fallback |
+| Limit | Detail |
 |---|---|
-| Langflow or Claude API is down | The header shows **AI offline**. Seeded web quotes cover the solenoid valve demo row. |
-| Web Search gets rate-limited | 7-day quote cache; seeded quotes are used for the demo item. |
-| No Docker available | Set `DATABASE_URL=sqlite:///./procur.db` in `.env` to use SQLite. |
+| Purchase history | The database is seeded with demo data. Real history must be imported via the Excel import page or the CSV import endpoint. |
+| Web check rate limits | The Web Check flow uses DuckDuckGo search (no API key). During a live demo it may be throttled. The 60-day quote cache and the seeded solenoid quotes mean this does not affect the demo item. |
+| Langflow model providers | The Claude API key must be entered in Langflow's **Model Providers** settings, not in `backend\.env`. The backend `.env` holds the Langflow API key and flow IDs only. |
+| Web check timeout | The backend allows 60 s for a Langflow call. Very slow web results return an error row with `status=pending`; recheck the row manually once the cache is warm. |
