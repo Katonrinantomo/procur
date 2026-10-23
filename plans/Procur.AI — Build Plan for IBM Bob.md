@@ -27,9 +27,13 @@ The reference case is a manufacturing company with no purchase database and unre
 | Web check for new items (second Langflow flow) | Must ship |
 | Flag rules: price, stock cover, unusual quantity | Must ship |
 | Approve and Return to requester actions | Must ship |
+| Flag box with reasons and numbers (M11) | Must ship |
+| Real market quotes with capture dates (M12) | Must ship |
 | Compare suppliers panel (from purchase history) | Should ship |
-| CSV import of past purchases | Should ship |
-| History and Suppliers pages | Stretch |
+| Excel import of past purchases (M13) | Should ship |
+| History page: purchases and past requests (M14) | Should ship |
+| Quick check page (M15) | Should ship |
+| Suppliers page | Stretch |
 | Dark mode, mobile polish | Stretch |
 | Login, user roles, PO generation | Out of scope |
 
@@ -108,11 +112,11 @@ Nine tables in PostgreSQL. Money is always an integer number of rupiah (`BIGINT`
 | --- | --- | --- |
 | `suppliers` | id, name (unique), phone, city, created\_at | — |
 | `items` | id, name (unique, clear English), aliases (JSON list of other names, e.g. "oli hidrolik 46"), category, unit, created\_at | — |
-| `purchases` | id, po\_number, purchase\_date, item\_id, supplier\_id, qty, unit\_price\_idr, source (seed / csv / manual) | items, suppliers |
+| `purchases` | id, po\_number, purchase\_date, item\_id, supplier\_id, qty, unit\_price\_idr, source (seed / csv / excel / manual) | items, suppliers |
 | `stock` | item\_id (primary key), qty\_on\_hand, avg\_monthly\_use, updated\_at | items |
 | `requests` | id, requested\_at, requested\_by, raw\_text, created\_at | — |
 | `request_items` | id, request\_id, line\_no, raw\_name, item\_id (empty = new item), department, qty, unit, quoted\_unit\_price\_idr, quoting\_supplier\_name, supplier\_id, reference\_unit\_price\_idr, diff\_pct, checked\_via (history / web / none), history\_count, status, check\_error, checked\_at | requests, items, suppliers |
-| `web_quotes` | id, request\_item\_id, query, title, url, seller, price\_idr, fetched\_at | request\_items |
+| `web_quotes` | id, request\_item\_id (empty for cached quotes), item\_key, query, title, url, seller, price\_idr, fetched\_at | request\_items |
 | `flags` | id, request\_item\_id, code, message, created\_at | request\_items |
 | `actions` | id, request\_item\_id, action (approve / return), note, actor, created\_at | request\_items |
 
@@ -130,7 +134,7 @@ Row status is one of `pending`, `checked`, `new`, `flagged`, `approved`, `return
 | 04 | Work gloves, cotton dotted | Production | 10 doz | 96.000 | 4 buys, last 3 average 98.000 | −2.0%, Checked |
 | 05 | Packing tape 48mm, clear | Warehouse | 3 box | 210.000 | 9 buys, last 3 average 205.000 | +2.4%, Checked |
 
-If the reference company can share even 2 to 3 months of purchase notes, type them into a CSV and import them (milestone M9). Real history makes the demo far more convincing; rename suppliers if they prefer privacy.
+If the reference company can share even 2 to 3 months of purchase notes, fill them into the Excel template and import them (M13). Real history makes the demo far more convincing; rename suppliers if they prefer privacy.
 
 ## Backend logic
 
@@ -155,7 +159,7 @@ The backend owns every number: it matches items, computes reference prices, appl
 
 1. **Match.** Normalize the name: lowercase, strip punctuation, unify units ("20 liter", "20 ltr", "20 L" become "20l"). Compare it with every catalog name and alias using rapidfuzz `token_set_ratio`. A score of 85 or more is a match; anything lower makes the row a new item.
 2. **Reference from history.** For a matched item, average the unit prices of its last 3 purchases by date. Fewer than 3 is fine; zero purchases sends the row to the web check.
-3. **Reference from the web.** Reuse cached quotes for the same query from the last 7 days. Otherwise call Flow 2 (Web check) with "harga \<item name>". Drop quotes with no URL or a zero price, keep at most 5, and take the median.
+3. **Reference from the web.** Reuse the newest cached quotes for the same item if they are at most 60 days old, and show when they were captured. Otherwise call Flow 2 (Web check) with "harga \<item name>". Drop quotes with no URL or a zero price, keep at most 5, and take the median.
 4. **Difference.** `diff_pct = (quoted − reference) ÷ reference × 100`, rounded to 1 decimal. Empty when either price is missing.
 5. **Flags.** Run every rule in the table below. Each rule is a small pure function with its threshold in config.
 6. **Status.** Any flag makes the row `flagged`. Otherwise a reference from the web (or none) makes it `new`, and a reference from history makes it `checked`. Approve and Return override this.
@@ -198,7 +202,7 @@ Reply with JSON only. No explanation, no code fences. Shape:
 Rules:
 - One object per distinct item. Keep specs in the name: size, grade, voltage, part number.
 - Write the name in clear English. Keep brand names and part numbers as written.
-- qty is a number. unit is one of: pcs, box, drum, doz, roll, pack, set, kg, liter, meter.
+- qty is a number. unit is one of: pcs, box, drum, doz, roll, pack, set, kg, liter, meter, yard.
 - "lusin" means doz, "dus" means box.
 - Prices become an integer in rupiah per unit: "1,45jt" = 1450000, "Rp 38.500" = 38500, "96rb" = 96000.
 - department is one of: Warehouse, Maintenance, Production, Office, or null.
@@ -276,7 +280,7 @@ The UI must match `design/reference.html` exactly: one Today screen, queue table
 | Text | `#1A1A1A` primary, `#4A4A46` secondary, `#5E5E59` / `#6B6B66` muted | Body, labels, captions |
 | Surfaces | `#FFFFFF` page, `#F7F7F5` table header, `#F2F2EF` active nav | Backgrounds |
 | Lines | `#E6E6E2` table and panel border, `#EDEDEA` row dividers, `#E0E0DB` button and chip borders | Borders |
-| Flagged | text `#9A3412`, chip `#FDEBDD`, row `#FFF8F2`, 3px left bar `#9A3412` | Flagged rows and chips |
+| Flagged | text `#9A3412`, chip `#FDEBDD`, row `#FFF8F2`, 3px left bar `#9A3412` | Flagged rows and chips; the flag box uses background #FFF4EC, border #F2C7A5 and reason text #7C2D12 |
 | New item | text `#1E3A8A`, chip `#E8EEFB` | New item chips |
 | Checked | text `#3F3F3B`, chip `#F0F0EC` | Checked chips |
 | Approved | text `#166534`, chip `#E7F4EC` | After Approve (not in the mock) |
@@ -287,11 +291,11 @@ The UI must match `design/reference.html` exactly: one Today screen, queue table
 
 **Layout, top to bottom**
 
-1. **Header.** App name, nav (Today, History, Suppliers), and the Add requests button on the right, over a 1px bottom border.
+1. **Header.** App name, nav (Today, Quick check, History, Import), and the Add requests button on the right, over a 1px bottom border.
 2. **Title row.** "Requests · Sat, 10 Oct 2026", a summary line ("5 requests · 3 checked · 1 new item · 1 flagged"), and filter chips with counts on the right.
 3. **Queue table.** Columns in this order: #, Item, Dept., Qty, Quoted / unit, Reference / unit, Diff., Checked via, Status. Numbers are right-aligned in Geist Mono. Flagged rows come first; the first flagged row is selected on load. A click or Enter selects a row.
 4. **Inspector.** One bordered panel in two halves.
-   - Left: "Row 01 · Requested by Warehouse, 08:12", the item name, six fields (Quoted total, At reference price, Over reference, Quoting supplier, Stock on record, Avg. monthly use), flag reasons, and the buttons Compare suppliers, Approve, Return to requester.
+   - Left: "Row 01 · Requested by Warehouse, 08:12", the item name, the flag box (when the row has flags), six fields (Quoted total, At reference price, Over reference, Quoting supplier, Stock on record, Avg. monthly use), and the buttons Compare suppliers, Approve, Return to requester.
    - Right: purchase history (Date, PO no., Supplier, Qty, Price / unit) with a "3-buy average (reference)" footer. For web-checked rows, a Web quotes table instead (Seller, Offer as a link, Price / unit) with a "Median of N quotes (reference)" footer.
 5. **Add requests dialog** (not in the mock, same style). Textarea, then Organize, then an editable preview table, then Save and check.
 
@@ -357,7 +361,7 @@ Run one milestone per conversation: plan it, check the plan, then build it. Bob 
 
 ## Prompt sequence
 
-Ten prompts in build order. Each one names its mode and ends with a check; don't start the next milestone until the check passes and you've committed. The prompts refer to sections of this doc by name, so they work once it's exported to `plans/procur-plan.md`.
+Fifteen prompts in build order; M11 to M15 come from the first review of the built app. Each one names its mode and ends with a check; don't start the next milestone until the check passes and you've committed. The prompts refer to sections of this doc by name, so they work once it's exported to `plans/procur-plan.md`.
 
 ### M1 · Scaffold the project
 
@@ -561,6 +565,138 @@ Prepare the app for the demo video and the jury.
 
 Done when a fresh clone runs by following the README alone.
 
+### Before M11 · Fix these by hand
+
+1. **Organize fails with "405 Method Not Allowed".** The URL ends in `/api/v1/run/` with no flow ID, so the backend isn't reading your flow IDs. It runs from `backend/`, so it reads `backend/.env`, not the root one. Open `backend/.env` (if it's missing, copy `.env.example` from the project root), fill in `LANGFLOW_API_KEY`, `LANGFLOW_ORGANIZE_FLOW_ID` and `LANGFLOW_WEBCHECK_FLOW_ID`, then restart uvicorn. It reads `.env` only at startup.
+2. **Push the code to GitHub.** `git init` only creates a local repository. Create an empty private repository named `procur` on GitHub, without a README. Then run `git remote add origin https://github.com/YOUR-USERNAME/procur.git`, `git branch -M main` and `git push -u origin main`. After each milestone, commit and run `git push`.
+3. **Update the design files.** Replace `design/reference.html` with the new version, add `design/quick-check.html`, and export this doc again to `plans/procur-plan.md`.
+4. **Capture 3 real quotes** for "solenoid valve 24V DC 1/2 inch" from Tokopedia, Shopee, Lazada or a supplier's site. Write down each seller, listing title, URL and price per unit. M12 uses them in place of the placeholder quotes.
+5. **Units.** If the company buys fabric, add `yard` to the unit list in Flow 1's System Message in Langflow. The Langflow section above already includes it.
+
+### M11 · Today screen polish
+
+Mode: Agent.
+
+```text
+Polish the Today screen to match the updated @design/reference.html. Change only the frontend, apart from the one API addition in step 3.
+
+1. Remove every hard-coded "Sample data" or "mockup" text from the frontend (search the whole frontend folder). Under the purchase history table, show only "All prices in Rp."
+2. Flag box: copy the box under the item name in @design/reference.html exactly: 1px border #F2C7A5, background #FFF4EC, radius 10px, padding 14px 16px, warning icon and the title "Flagged · N reasons to check" in #9A3412, reason text in #7C2D12. Place it directly under the item name. Show it whenever the row has flags, also after Approve or Return. Remove the old plain "Flag reasons" list.
+3. Each reason shows the flag message from the API plus one detail line built from the row's real values with lib/format.ts:
+   - PRICE_ABOVE_REF: "Rp 1.450.000 quoted vs Rp 1.120.000 reference (+29.5%)"
+   - STOCK_COVER_HIGH: "3 drum on hand, about 2 drum used per month"
+   - QTY_UNUSUAL: "8 drum requested, usually about 4" (add usual_qty, the median past quantity, to GET /api/request-items/{id})
+   - NEW_SUPPLIER: "<supplier> has no purchases in history"
+4. "Checked via" column: show counts like the design, "History · 3 buys" or "Web · 3 quotes".
+5. Leave the nav as it is. M14 and M15 add the History and Quick check pages.
+
+Do not change the flag messages in the backend; the tests depend on them.
+```
+
+Done when, after `python -m app.seed --reset`, the hydraulic oil row shows the flag box with both reasons and their detail lines, and the word "mockup" appears nowhere in the app.
+
+### M12 · Real market quotes and clear errors
+
+Mode: Agent. Fill in the brackets with the quotes you captured; the new median is the middle of the 3 prices.
+
+```text
+Make every price on screen traceable to a real source, and make Langflow problems obvious.
+
+Real quotes
+- Let cached web quotes exist without a request: make web_quotes.request_item_id nullable and add item_key (the item name normalized with matcher.py). Add an Alembic migration.
+- In seed.py, replace the 3 invented quotes for "Solenoid valve 24V DC, 1/2"" with these real listings captured on [CAPTURE DATE], with fetched_at set to that date. Seed them as cache rows on every run, including --empty-today:
+  1. seller [SELLER 1], title [TITLE 1], url [URL 1], price_idr [PRICE 1]
+  2. seller [SELLER 2], title [TITLE 2], url [URL 2], price_idr [PRICE 2]
+  3. seller [SELLER 3], title [TITLE 3], url [URL 3], price_idr [PRICE 3]
+- web_check.py: first reuse the newest cached quotes whose item_key matches (exactly, or token_set_ratio 85+ as in matcher.py) and that are at most WEB_QUOTE_MAX_AGE_DAYS old (config, default 60). Call the Web check flow only when none exist, and save its results as cache rows too.
+- Inspector: under the web quotes table, show "All prices in Rp. Quotes captured 11 Oct 2026." using the newest fetched_at. Each Offer opens its real URL in a new tab.
+- Update the one test that expects the solenoid reference 425000 to [NEW MEDIAN]. Change nothing else in the tests.
+
+Clear errors
+- At startup, log a clear error when LANGFLOW_API_KEY, LANGFLOW_ORGANIZE_FLOW_ID or LANGFLOW_WEBCHECK_FLOW_ID is empty.
+- In that case, GET /api/health returns "langflow": "not configured" and the header shows "AI not configured".
+- When a flow ID is missing, POST /api/requests/parse returns "The Organize flow isn't configured. Set LANGFLOW_ORGANIZE_FLOW_ID in backend/.env." instead of a raw 405.
+- Show Langflow 401 and 403 as "Langflow rejected the API key", and timeouts as "Langflow took too long. Try again."
+```
+
+Done when the solenoid valve shows your 3 real listings with working links and the capture date, both after the normal seed and after `--empty-today` plus Add requests. Blanking a flow ID in `backend/.env` should show "AI not configured", not a 405.
+
+### M13 · Excel import
+
+Mode: Agent.
+
+```text
+Switch the purchase import from CSV to Excel, on the existing Import page and POST /api/imports/purchases.
+
+- Accept .xlsx (first sheet). Keep .csv working as a fallback.
+- Match header names case-insensitively, in English or Indonesian:
+  date / tanggal · po_number / no_po · supplier / pemasok / vendor · item / barang / nama_barang · qty / jumlah · unit / satuan · unit_price_idr / harga_satuan / harga
+- Dates: real Excel date cells, or text such as 12/08/2026 (day first) or 2026-08-12.
+- Prices: numbers, or text such as "Rp 1.130.000" or "1.130.000" (dots are thousands separators). Store integer rupiah.
+- Skip empty rows. Report errors with their Excel row numbers (the header is row 1).
+- Save imported rows with source "excel" (add it to the enum with a migration).
+- GET /api/imports/purchases/template returns procur-purchases-template.xlsx: the header row plus 2 example rows.
+- Import page: the file picker accepts .xlsx and .csv, with a "Download template" link next to it. The text reads "Upload an Excel file (.xlsx) with columns: date, po_number, supplier, item, qty, unit, unit_price_idr." Keep the summary table (inserted, skipped, new items, new suppliers, errors with row numbers).
+- Add openpyxl to requirements.txt, and add backend/sample_data/purchases_sample.xlsx with the same 20 rows as the CSV sample.
+- Tests: the .xlsx imports 20 rows, then skips all 20 on a second import; Indonesian headers work; an Excel date cell parses; "Rp 1.130.000" becomes 1130000.
+```
+
+Done when the template downloads, the sample `.xlsx` imports 20 rows and then skips all 20, and the tests pass.
+
+### M14 · History page
+
+Mode: Plan first, then Agent in a new conversation.
+
+```text
+Build a real History page at /history. Right now the History link only shows the Today screen. Use the same look as @design/reference.html: header, title row, chips, bordered tables, Geist Mono numbers, id-ID formatting.
+
+Two tabs at the top, styled like the filter chips: Purchases and Requests.
+
+Purchases tab (the purchase database)
+- Columns: Date, PO no., Item, Supplier, Qty, Price / unit, Total (qty × price). Newest first.
+- A search box (item name or alias, supplier, PO number), a supplier dropdown and a date range (default: last 90 days). 50 rows per page with Previous and Next.
+- A summary line above the table for the current filter: number of purchases, number of suppliers, total amount in Rp.
+- Clicking an item name opens a side panel with that item's last 10 purchases and its 3-buy average.
+- API: GET /api/purchases?search=&supplier_id=&date_from=&date_to=&page= (rows, total count, total amount) and GET /api/suppliers.
+
+Requests tab (what was asked for on earlier days)
+- Columns: Date, Item, Dept., Qty, Quoted / unit, Reference / unit, Diff., Status. Newest first.
+- A date range filter and status chips: All, Flagged, New, Checked, Approved, Returned.
+- Clicking a row opens the same inspector as the Today screen. Reuse the component.
+- API: GET /api/request-items?date_from=&date_to=&status=&page=
+
+Also
+- Nav: Today, History and Import each get their own route, and the active one is highlighted.
+- Seed: add 10 earlier request days with 3 to 6 rows each and a mix of statuses, so the Requests tab isn't empty. Keep today's 5 demo rows exactly as they are.
+- Tests for the purchases filters, paging and totals.
+```
+
+Done when History lists the purchases with working search, filters and paging, the Requests tab shows earlier days, and clicking a row opens the inspector.
+
+### M15 · Quick check page
+
+Mode: Agent (Plan first if you have time).
+
+```text
+Add a Quick check page at /quick-check that matches @design/quick-check.html: one input box, a Check button, example chips that fill the box, and one result card per item showing Organize, Check and Mark.
+
+Backend
+- POST /api/quick-check with {text}. Run the Organize flow, then run the same matching, pricing and flag rules as checker.py on each item WITHOUT saving anything. Add a dry-run path to checker.py so the logic is shared, not copied. Use web_check.py as it is for items with no history.
+- Return per item: name, qty, unit, department, quoted price, supplier, catalog match and category, history count, last 3 purchases (date, supplier, price), reference and its source, diff_pct, flags with messages, status.
+
+Frontend
+- A result card per item, like the design: "Bought N times before" (or "New item"), the item name and a status chip, then three rows:
+  Organize: category · qty · quoted price · supplier
+  Check: the 3-buy average with suppliers and last date, or the web median with its capture date, or "No price reference found"
+  Mark: the flag box from @design/reference.html, or "Looks normal" in the Checked chip style
+- Buttons: "Add to today's queue" saves the item with POST /api/requests (requested_by "Quick check") and then shows a "View in Today" link. "See purchase history" opens /history filtered to that item.
+- Example chips fill the input. Enter submits. While waiting, show "Checking…". Langflow errors appear inline with Retry.
+- Nav: Today, Quick check, History, Import.
+- Test: a quick check of the oil text returns flagged with PRICE_ABOVE_REF and STOCK_COVER_HIGH, and writes nothing to the database.
+```
+
+Done when `oli hidrolik 46 20L 4 drum @1,45jt dari CV Sinar Pelumas` shows Flagged with both reasons, and the Today queue changes only after Add to today's queue.
+
 ## Demo, schedule and risks
 
 The demo tells one story in about 3 minutes: a messy morning message becomes a checked queue, and an overpriced item gets caught. If you reach the semifinal (announced 13 Oct), Stage 2 submissions run 14–31 Oct 2026 and ask for an MVP, a business model, a demo video, and documentation with a technical diagram.
@@ -572,14 +708,14 @@ Aim to finish M1 to M8 by 25 Oct, and keep the last week for import, polish and 
 1. **The problem** (20 s). A manufacturer buys daily from small suppliers with no purchase database and unreliable stock records, so overpaying goes unnoticed.
 2. **Organize** (40 s). Start from an empty day (`--empty-today`). Paste the morning's WhatsApp message in Indonesian, click Organize, and show the clean preview.
 3. **Check and mark** (60 s). Save. The queue fills and the hydraulic oil is flagged at +29.5%. Open it: 3 past purchases, Rp 1.320.000 over reference, and stock that already covers about 6 weeks.
-4. **New item** (30 s). The solenoid valve has no history, so Procur.AI searched the web: 3 quotes, median Rp 425.000.
+4. **New item** (30 s). The solenoid valve has no purchase history, so Procur.AI shows market prices: 3 real listings with the date they were captured, median Rp \[NEW MEDIAN\]. Only call it a live web search if the Web check flow works on the day.
 5. **Decide** (20 s). Compare suppliers, return the oil request with a note, approve the rest.
 6. **Under the hood** (20 s). Show the two Langflow flows on Claude Haiku and the architecture diagram. The model reads text; every number comes from the database.
 
 | Risk | Fallback |
 | --- | --- |
 | Langflow or the Claude API is slow or down while recording | Seeded web quotes and the "AI offline" label; record from a working run and keep a backup take |
-| Web Search gets rate-limited | 7-day quote cache and seeded quotes for the demo item; swap to an API-based search component later |
+| Web Search gets rate-limited | 60-day quote cache and real captured quotes for the demo item; swap to an API-based search component later |
 | Haiku returns broken JSON | Pydantic check, one automatic retry, and the editable preview |
 | Wrong catalog match | The matched name shows in the inspector; the threshold lives in config |
 | Bob drifts from the design or the numbers | Rules file, `reference.html`, tests on the demo numbers, one milestone per conversation, a commit after each |

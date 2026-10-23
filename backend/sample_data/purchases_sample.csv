@@ -1,0 +1,21 @@
+date,po_number,supplier,item,qty,unit,unit_price_idr
+2024-01-05,PO-2024-001,PT Sumber Teknik,Hydraulic oil ISO VG 46 20L,10,drum,1150000
+2024-01-08,PO-2024-002,CV Maju Jaya,Bearing SKF 6205,50,pcs,45000
+2024-01-10,PO-2024-003,PT Sumber Teknik,Grease Mobilux EP2 1kg,20,kg,85000
+2024-01-15,PO-2024-004,UD Karya Mandiri,V-belt A-42,15,pcs,32000
+2024-01-18,PO-2024-005,CV Maju Jaya,Safety gloves nitrile M,100,pcs,8500
+2024-02-03,PO-2024-006,PT Sumber Teknik,Hydraulic oil ISO VG 46 20L,8,drum,1180000
+2024-02-07,PO-2024-007,UD Karya Mandiri,Bearing SKF 6205,30,pcs,46000
+2024-02-12,PO-2024-008,CV Maju Jaya,Filter element hydraulic HF35480,5,pcs,210000
+2024-02-20,PO-2024-009,PT Sumber Teknik,Grease Mobilux EP2 1kg,15,kg,87000
+2024-02-25,PO-2024-010,UD Karya Mandiri,Safety gloves nitrile M,80,pcs,8800
+2024-03-04,PO-2024-011,CV Maju Jaya,V-belt A-42,20,pcs,31500
+2024-03-10,PO-2024-012,PT Sumber Teknik,Hydraulic oil ISO VG 46 20L,12,drum,1200000
+2024-03-14,PO-2024-013,UD Karya Mandiri,Filter element hydraulic HF35480,8,pcs,215000
+2024-03-20,PO-2024-014,CV Maju Jaya,Bearing SKF 6205,25,pcs,44500
+2024-03-28,PO-2024-015,PT Sumber Teknik,Grease Mobilux EP2 1kg,25,kg,86000
+2024-04-05,PO-2024-016,UD Karya Mandiri,V-belt A-42,10,pcs,33000
+2024-04-11,PO-2024-017,CV Maju Jaya,Safety gloves nitrile M,120,pcs,8600
+2024-04-18,PO-2024-018,PT Sumber Teknik,Filter element hydraulic HF35480,6,pcs,212000
+2024-04-25,PO-2024-019,UD Karya Mandiri,Hydraulic oil ISO VG 46 20L,5,drum,1175000
+2024-05-02,PO-2024-020,CV Maju Jaya,Bearing SKF 6205,40,pcs,45500

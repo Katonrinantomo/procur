@@ -1,0 +1,105 @@
+<!doctype html>
+<!-- Procur.AI: approved design for the Quick check page.
+     Static reference for IBM Bob. Numbers match the seeded demo data; the app must read them from the API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procur.AI — Quick check (design reference)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#1A1A1A}a:hover{color:#555}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; font-family: 'Geist', system-ui, sans-serif; color: #1A1A1A; background: #FFFFFF; display: flex; flex-direction: column">
+
+<header style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 28px; border-bottom: 1px solid #EDEDEA">
+<div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap">
+<span style="font-weight: 600; font-size: 16px">Procur.AI</span>
+<nav aria-label="Main" style="display: flex; gap: 4px; font-size: 14px">
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Today</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; background: #F2F2EF">Quick check</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">History</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Import</a>
+</nav>
+</div>
+<button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Add requests</button>
+</header>
+
+<main style="width: 100%; max-width: 760px; margin: 0 auto; box-sizing: border-box; padding: 64px 28px 48px; display: flex; flex-direction: column; align-items: center; gap: 28px">
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<h1 style="margin: 0; font-size: 32px; font-weight: 500; letter-spacing: -0.02em">What are you buying today?</h1>
+<p style="margin: 0; font-size: 15px; color: #6B6B66">Type one item the way it was asked. Nothing is saved until you add it to the queue.</p>
+</div>
+
+<form style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 1px solid #E0E0DB; border-radius: 999px; padding: 8px 8px 8px 24px">
+<label for="qc-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Item to check</label>
+<input id="qc-input" type="text" value="oli hidrolik 46 20L 4 drum @1,45jt dari CV Sinar Pelumas" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font: inherit; font-size: 16px; background: transparent; color: #1A1A1A">
+<button type="submit" style="height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Check</button>
+</form>
+
+<!-- Example chips: clicking one fills the input. -->
+<div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; font-size: 13px">
+<span style="color: #6B6B66">Try</span>
+<button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #E0E0DB; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 13px; color: #4A4A46; cursor: pointer">bearing 6205 ZZ 20 pcs @38.500</button>
+<button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #E0E0DB; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 13px; color: #4A4A46; cursor: pointer">solenoid valve 24V DC 1/2" 2 pcs</button>
+<button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #E0E0DB; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 13px; color: #4A4A46; cursor: pointer">lakban bening 48mm 3 dus @210rb</button>
+</div>
+
+<!-- One result card per item returned by POST /api/quick-check. -->
+<article style="width: 100%; box-sizing: border-box; border: 1px solid #E6E6E2; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #6B6B66">Bought 3 times before</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Hydraulic oil ISO VG 46, 20L</h2>
+</div>
+<span style="font-size: 12px; font-weight: 500; color: #9A3412; padding: 4px 8px; border-radius: 6px; background: #FDEBDD">Flagged</span>
+</div>
+
+<dl style="margin: 0; display: flex; flex-direction: column">
+<div style="display: flex; gap: 16px; padding: 14px 0; border-top: 1px solid #EDEDEA; flex-wrap: wrap">
+<dt style="width: 80px; flex-shrink: 0; font-size: 13px; color: #6B6B66; padding-top: 1px">Organize</dt>
+<dd style="margin: 0; flex: 1 1 320px; min-width: 0; font-size: 14px; line-height: 1.55">Lubricants · 4 drum · <span style="font-family: 'Geist Mono', monospace">Rp 1.450.000</span> per drum · quoted by CV Sinar Pelumas</dd>
+</div>
+<div style="display: flex; gap: 16px; padding: 14px 0; border-top: 1px solid #EDEDEA; flex-wrap: wrap">
+<dt style="width: 80px; flex-shrink: 0; font-size: 13px; color: #6B6B66; padding-top: 1px">Check</dt>
+<dd style="margin: 0; flex: 1 1 320px; min-width: 0; font-size: 14px; line-height: 1.55">Last 3 buys averaged <span style="font-family: 'Geist Mono', monospace">Rp 1.120.000</span> (PT Mitra Oli Jaya ×2, CV Sinar Pelumas ×1). Last bought 12 Aug 2026.</dd>
+</div>
+<div style="display: flex; gap: 16px; padding: 14px 0; border-top: 1px solid #EDEDEA; flex-wrap: wrap">
+<dt style="width: 80px; flex-shrink: 0; font-size: 13px; color: #6B6B66; padding-top: 1px">Mark</dt>
+<dd style="margin: 0; flex: 1 1 320px; min-width: 0">
+<!-- Same flag box as the Today inspector. With no flags, show "Looks normal" in the Checked chip style instead. -->
+<div style="border: 1px solid #F2C7A5; background: #FFF4EC; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #9A3412">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A3412" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L21.5 20h-19z"></path><path d="M12 10v4.5"></path><path d="M12 17.5h.01"></path></svg>
+<span>Flagged · 2 reasons to check</span>
+</div>
+<ul style="margin: 0; padding: 0 0 0 24px; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<li style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 500; color: #7C2D12">Price &gt; 15% above 3-buy average</span>
+<span style="font-size: 13px; line-height: 1.45; color: #9A3412">Rp 1.450.000 quoted vs Rp 1.120.000 reference (+29.5%)</span>
+</li>
+<li style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 500; color: #7C2D12">Stock covers ~6 weeks of use</span>
+<span style="font-size: 13px; line-height: 1.45; color: #9A3412">3 drum on hand, about 2 drum used per month</span>
+</li>
+</ul>
+</div>
+</dd>
+</div>
+</dl>
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" style="height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Add to today's queue</button>
+<button type="button" style="height: 44px; padding: 0 18px; border: 1px solid #E0E0DB; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">See purchase history</button>
+</div>
+</article>
+
+</main>
+</div>
+</body>
+</html>

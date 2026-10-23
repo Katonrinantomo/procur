@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Procur.AI: approved design for the Today screen (concept B, daily queue + inspector).
-     Static reference for IBM Bob. All numbers and supplier names are sample data. -->
+     Static reference for IBM Bob. Numbers match the seeded demo data; the app must read them from the API. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -21,8 +21,9 @@ a{color:#1A1A1A}a:hover{color:#555}
 <span style="font-weight: 600; font-size: 16px">Procur.AI</span>
 <nav aria-label="Main" style="display: flex; gap: 4px; font-size: 14px">
 <a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; background: #F2F2EF">Today</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Quick check</a>
 <a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">History</a>
-<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Suppliers</a>
+<a href="#" style="text-decoration: none; padding: 8px 12px; border-radius: 8px; color: #4A4A46">Import</a>
 </nav>
 </div>
 <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Add requests</button>
@@ -125,6 +126,23 @@ a{color:#1A1A1A}a:hover{color:#555}
 <span style="font-size: 12px; color: #6B6B66">Row 01 · Requested by Warehouse, 08:12</span>
 <h2 style="margin: 0; font-size: 20px; font-weight: 600">Hydraulic oil ISO VG 46, 20L</h2>
 </div>
+<!-- Flag box: shown whenever the row has flags, directly under the item name. -->
+<div style="border: 1px solid #F2C7A5; background: #FFF4EC; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #9A3412">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A3412" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L21.5 20h-19z"></path><path d="M12 10v4.5"></path><path d="M12 17.5h.01"></path></svg>
+<span>Flagged · 2 reasons to check</span>
+</div>
+<ul style="margin: 0; padding: 0 0 0 24px; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<li style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 500; color: #7C2D12">Price &gt; 15% above 3-buy average</span>
+<span style="font-size: 13px; line-height: 1.45; color: #9A3412">Rp 1.450.000 quoted vs Rp 1.120.000 reference (+29.5%)</span>
+</li>
+<li style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 500; color: #7C2D12">Stock covers ~6 weeks of use</span>
+<span style="font-size: 13px; line-height: 1.45; color: #9A3412">3 drum on hand, about 2 drum used per month</span>
+</li>
+</ul>
+</div>
 <dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; font-size: 14px">
 <div><dt style="font-size: 12px; color: #6B6B66">Quoted total</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">Rp 5.800.000</dd></div>
 <div><dt style="font-size: 12px; color: #6B6B66">At reference price</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">Rp 4.480.000</dd></div>
@@ -133,13 +151,6 @@ a{color:#1A1A1A}a:hover{color:#555}
 <div><dt style="font-size: 12px; color: #6B6B66">Stock on record</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">3 drum</dd></div>
 <div><dt style="font-size: 12px; color: #6B6B66">Avg. monthly use</dt><dd style="margin: 2px 0 0; font-family: 'Geist Mono', monospace">2 drum</dd></div>
 </dl>
-<div style="display: flex; flex-direction: column; gap: 6px">
-<span style="font-size: 12px; color: #6B6B66">Flag reasons</span>
-<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6">
-<li>Price &gt; 15% above 3-buy average</li>
-<li>Stock covers ~6 weeks of use</li>
-</ul>
-</div>
 <div style="display: flex; gap: 8px; flex-wrap: wrap">
 <button type="button" style="height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: #1A1A1A; color: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Compare suppliers</button>
 <button type="button" style="height: 44px; padding: 0 16px; border: 1px solid #E0E0DB; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 14px; cursor: pointer">Approve</button>
@@ -170,7 +181,7 @@ a{color:#1A1A1A}a:hover{color:#555}
 </tfoot>
 </table>
 </div>
-<p style="margin: 4px 0 0; font-size: 12px; color: #6B6B66">All prices in Rp. Sample data for the mockup.</p>
+<p style="margin: 4px 0 0; font-size: 12px; color: #6B6B66">All prices in Rp.</p>
 </div>
 
 </section>

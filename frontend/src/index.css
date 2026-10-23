@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  /* Status chip colors */
+  --color-flagged-text: #9A3412;
+  --color-flagged-chip: #FDEBDD;
+  --color-flagged-row: #FFF8F2;
+  --color-new-text: #1E3A8A;
+  --color-new-chip: #E8EEFB;
+  --color-checked-text: #3F3F3B;
+  --color-checked-chip: #F0F0EC;
+  --color-approved-text: #166534;
+  --color-approved-chip: #E7F4EC;
+  --color-returned-text: #4A4A46;
+  --color-pending-text: #4A4A46;
+  --color-pending-chip: #F0F0EC;
+
+  /* Border tokens */
+  --color-border-panel: #E6E6E2;
+  --color-border-row: #EDEDEA;
+  --color-border-chip: #E0E0DB;
+
+  /* Text tokens */
+  --color-text-muted: #6B6B66;
+  --color-text-secondary: #4A4A46;
+  --color-text-header: #5E5E59;
+
+  /* Surface tokens */
+  --color-surface-header: #F7F7F5;
+  --color-surface-active-nav: #F2F2EF;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: #1A1A1A;
+  background: #FFFFFF;
+}
