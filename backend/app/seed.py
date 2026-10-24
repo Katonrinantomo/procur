@@ -8,12 +8,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import sys
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
 
+from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import (
     Action,
@@ -890,11 +892,39 @@ def _print_summary(session, empty_today: bool) -> None:
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
+def _is_demo_environment() -> bool:
+    """Return True only if the database host is localhost / 127.0.0.1."""
+    from urllib.parse import urlparse
+    db_url = settings.DATABASE_URL
+    try:
+        host = urlparse(db_url).hostname or ""
+    except Exception:
+        host = ""
+    return host.lower() in ("localhost", "127.0.0.1", "")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed Procur.AI demo data")
     parser.add_argument("--reset", action="store_true", required=True,
                         help="Wipe and recreate all data")
     parser.add_argument("--empty-today", action="store_true",
                         help="Skip today's 5 demo request items")
+    parser.add_argument(
+        "--i-know-what-i-am-doing",
+        action="store_true",
+        help="Override the production/remote-host safety guard",
+    )
     args = parser.parse_args()
+
+    # Safety guard: refuse to reset if running against a non-demo environment.
+    app_env = os.environ.get("APP_ENV", "").lower()
+    if app_env == "production" or not _is_demo_environment():
+        if not getattr(args, "i_know_what_i_am_doing", False):
+            print(
+                "ERROR: Reset hanya diizinkan di environment demo dengan database localhost.\n"
+                "Gunakan flag --i-know-what-i-am-doing untuk override.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     seed(empty_today=args.empty_today)
