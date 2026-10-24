@@ -5,3 +5,11 @@ __pycache__/
 .venv/
 
 backend/.pytest_cache/
+
+# AI agent sessions
+.ob1/
+.bob/
+
+# Database files
+*.db
+*.sqlite
