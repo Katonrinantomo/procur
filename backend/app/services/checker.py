@@ -16,7 +16,6 @@ the full traceback is logged.  Failures never propagate to the caller.
 from __future__ import annotations
 
 import logging
-import traceback
 from datetime import datetime, timezone
 from statistics import median
 from typing import TypedDict
@@ -50,9 +49,10 @@ def check_item(row: RequestItem, session: Session) -> None:
         sp.commit()
     except Exception:
         sp.rollback()
-        logger.error("check_item failed for row id=%s:\n%s", row.id, traceback.format_exc())
+        # Log the full traceback server-side; expose only a generic message to clients.
+        logger.exception("check_item failed for row id=%s", row.id)
         row.status = "pending"
-        row.check_error = f"check failed: {traceback.format_exc().splitlines()[-1]}"
+        row.check_error = "Pengecekan gagal, coba lagi nanti."
         session.flush()
 
 

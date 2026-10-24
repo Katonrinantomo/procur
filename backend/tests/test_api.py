@@ -246,3 +246,76 @@ class TestQuickCheckAddToQueue:
             assert item.raw_name == "bearing 6205 ZZ"
         finally:
             sess.close()
+
+
+# ---------------------------------------------------------------------------
+# SEC-04: check_error must not leak internal paths or exception types
+# ---------------------------------------------------------------------------
+
+class TestCheckErrorSanitization:
+    """
+    The check_error field stored on a RequestItem and returned by
+    GET /api/request-items/{id} must not contain Python tracebacks,
+    file paths, or exception class names.
+    """
+
+    def _get_oil_id(self, seeded_db) -> int:
+        from app import db as db_module
+        from app.models import Request
+        from datetime import datetime, timedelta, timezone
+        JAKARTA = timezone(timedelta(hours=7))
+        today = datetime.now(tz=JAKARTA).date()
+        day_start = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=JAKARTA)
+        day_end = day_start + timedelta(days=1)
+        sess = db_module.SessionLocal()
+        try:
+            row = sess.execute(
+                select(RequestItem)
+                .join(Request, Request.id == RequestItem.request_id)
+                .where(
+                    RequestItem.line_no == 1,
+                    Request.requested_at >= day_start,
+                    Request.requested_at < day_end,
+                )
+            ).scalar_one()
+            return row.id
+        finally:
+            sess.close()
+
+    def test_check_error_generic_message_on_failure(self, seeded_db):
+        """
+        When a check_item failure is forced, the stored check_error must be
+        the generic message — not a traceback or exception class name.
+        Uses unittest.mock to raise inside _do_check so the savepoint path runs.
+        """
+        from unittest.mock import patch
+        from app import db as db_module
+        from app.services.checker import check_item
+
+        sess = db_module.SessionLocal()
+        try:
+            oil_id = self._get_oil_id(seeded_db)
+            row = sess.get(RequestItem, oil_id)
+            # Patch _do_check to always raise so the except branch in check_item runs.
+            with patch("app.services.checker._do_check", side_effect=RuntimeError("/home/user/secret.py line 42")):
+                check_item(row, sess)
+            # After the failure, row.check_error must be the generic message.
+            assert row.check_error == "Pengecekan gagal, coba lagi nanti."
+            # Must NOT contain path separators or Python exception names
+            assert "/" not in (row.check_error or "")
+            assert "Traceback" not in (row.check_error or "")
+        finally:
+            sess.rollback()
+            sess.close()
+
+    def test_api_check_error_does_not_leak_traceback(self, seeded_db):
+        """
+        GET /api/request-items/{id}: if check_error is set on a row, the API
+        response must not contain path separators or 'Traceback'.
+        """
+        oil_id = self._get_oil_id(seeded_db)
+        data = client.get(f"/api/request-items/{oil_id}").json()
+        ce = data.get("check_error") or ""
+        assert "Traceback" not in ce
+        assert "/home" not in ce
+        assert "/usr" not in ce
