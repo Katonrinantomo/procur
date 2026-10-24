@@ -589,10 +589,12 @@ def _seed_solenoid_cache(session) -> None:
     """
     from app.services.matcher import normalize_name as _norm
     valve_key = _norm('Solenoid valve 24V DC, 1/2"')
+    # URL placeholder diganti None — URL asli belum tersedia.
+    # Harga tetap valid untuk perhitungan referensi.
     valve_quotes = [
-        ("Tokopedia", "Solenoid Valve 24VDC 1/2 inch", "https://tokopedia.com/a", 398_000),
-        ("Shopee",    "Solenoid Valve 24V 1/2 BSPP",  "https://shopee.co.id/b",  425_000),
-        ("Lazada",    "Solenoid Valve 24VDC 1/2",      "https://lazada.co.id/c",  465_000),
+        ("Tokopedia", "Solenoid Valve 24VDC 1/2 inch", None, 398_000),
+        ("Shopee",    "Solenoid Valve 24V 1/2 BSPP",   None, 425_000),
+        ("Lazada",    "Solenoid Valve 24VDC 1/2",       None, 465_000),
     ]
     for seller, title, url, price in valve_quotes:
         session.add(WebQuote(

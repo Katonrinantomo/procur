@@ -1,6 +1,18 @@
 import { formatRupiah } from '../lib/format'
 import type { WebQuoteOut } from '../types/api'
 
+/** Accept only http/https URLs; anything else renders as plain text. */
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const p = new URL(url)
+    if (p.protocol !== 'http:' && p.protocol !== 'https:') return null
+    return url
+  } catch {
+    return null
+  }
+}
+
 interface WebQuotesTableProps {
   quotes: WebQuoteOut[]
   referencePrice: number | null
@@ -38,8 +50,8 @@ export default function WebQuotesTable({ quotes, referencePrice }: WebQuotesTabl
             <tr key={i} style={{ borderBottom: '1px solid #F2F2EF' }}>
               <td style={{ padding: '11px 10px 11px 0' }}>{q.seller ?? '—'}</td>
               <td style={{ padding: '11px 10px' }}>
-                {q.url ? (
-                  <a href={q.url} target="_blank" rel="noopener noreferrer" style={{ color: '#1A1A1A' }}>
+                {safeUrl(q.url) ? (
+                  <a href={safeUrl(q.url)!} target="_blank" rel="noopener noreferrer" style={{ color: '#1A1A1A' }}>
                     {q.title ?? q.url}
                   </a>
                 ) : (

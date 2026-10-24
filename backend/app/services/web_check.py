@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import WebQuote
+from app.security import safe_http_url
 from app.services.langflow_client import LangflowError, run_flow
 from app.services.matcher import normalize_name
 
@@ -102,16 +103,19 @@ def _save_quotes(
     """
     saved: list[WebQuote] = []
     for offer in offers:
-        url = offer.get("url") or ""
+        raw_url = offer.get("url") or ""
         price_idr = offer.get("price_idr")
-        if not url or not isinstance(price_idr, int) or price_idr <= 0:
+        if not isinstance(price_idr, int) or price_idr <= 0:
             continue
+        # Validate URL — only http/https with a real hostname are kept.
+        # Quotes with an invalid URL are stored with url=None (price still saved).
+        safe_url = safe_http_url(raw_url)
         wq = WebQuote(
             request_item_id=None,
             item_key=item_key,
             query=query,
             title=offer.get("title"),
-            url=url,
+            url=safe_url,
             seller=offer.get("seller"),
             price_idr=price_idr,
         )

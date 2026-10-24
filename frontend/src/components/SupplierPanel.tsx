@@ -2,6 +2,18 @@ import { formatRupiah, formatDate } from '../lib/format'
 import { useItemSuppliers } from '../hooks/useItemSuppliers'
 import type { WebQuoteOut } from '../types/api'
 
+/** Accept only http/https URLs; anything else renders as plain text. */
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const p = new URL(url)
+    if (p.protocol !== 'http:' && p.protocol !== 'https:') return null
+    return url
+  } catch {
+    return null
+  }
+}
+
 interface SupplierPanelProps {
   /** catalog item_id — null for new items (web quotes path) */
   itemId: number | null
@@ -131,8 +143,8 @@ export default function SupplierPanel({ itemId, quotingSupplierName, webQuotes, 
                       {webQuotes.map((wq, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #F2F2EF' }}>
                           <td style={TD}>
-                            {wq.url ? (
-                              <a href={wq.url} target="_blank" rel="noopener noreferrer" style={{ color: '#1A1A1A' }}>
+                            {safeUrl(wq.url) ? (
+                              <a href={safeUrl(wq.url)!} target="_blank" rel="noopener noreferrer" style={{ color: '#1A1A1A' }}>
                                 {wq.seller ?? wq.title ?? wq.url}
                               </a>
                             ) : (
