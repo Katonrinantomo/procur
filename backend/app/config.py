@@ -1,4 +1,9 @@
+import logging
+import sys
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -6,7 +11,9 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "Procur.AI"
 
-    DATABASE_URL: str = "postgresql+psycopg2://procur:procur@localhost:5432/procur"
+    # No default value — must be set in .env or environment.
+    # The app will refuse to start without a valid DATABASE_URL.
+    DATABASE_URL: str = ""
 
     # Comma-separated list of allowed Host header values for TrustedHostMiddleware.
     # Override in tests or staging by setting ALLOWED_HOSTS env var.
@@ -40,3 +47,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def validate_settings() -> None:
+    """Exit with a clear message if required settings are missing.
+
+    Called from main.py lifespan startup.
+    """
+    if not settings.DATABASE_URL:
+        logger.critical(
+            "DATABASE_URL tidak dikonfigurasi. Set di backend/.env atau env var."
+        )
+        sys.exit(1)

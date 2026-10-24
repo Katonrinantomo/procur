@@ -8,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app.config import settings
+from app.config import settings, validate_settings
 from app.routers import imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
 from app.security import limiter
 
@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: validate required settings
+    validate_settings()
+
     # Startup: validate Langflow configuration
     missing = []
     if not settings.LANGFLOW_API_KEY:
