@@ -8,13 +8,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import Request as StarletteRequest
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
 from app.models import Request, RequestItem, Supplier
 from app.schemas import QueueRow, RequestIn
+from app.security import limiter, RATE_LLM
 from app.services.checker import check_request
 from app.services.langflow_client import LangflowError
 from app.services.organizer import LineItemDraft, parse_text
@@ -29,12 +31,13 @@ JAKARTA = timezone(timedelta(hours=7))
 # ---------------------------------------------------------------------------
 
 class ParseIn(BaseModel):
-    text: str
+    text: str = Field(..., max_length=10_000)
     requested_by: Optional[str] = None
 
 
 @router.post("/api/requests/parse", response_model=list[LineItemDraft])
-async def parse_request(body: ParseIn):
+@limiter.limit(RATE_LLM)
+async def parse_request(request: StarletteRequest, body: ParseIn):
     """
     Send pasted text to the Organize flow and return draft line items.
     Saves nothing to the database.

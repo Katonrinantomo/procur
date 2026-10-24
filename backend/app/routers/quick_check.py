@@ -10,14 +10,15 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
 from app.models import Supplier
 from app.schemas import QuickCheckResult
+from app.security import limiter, RATE_LLM
 from app.services.checker import DryCheckDraft, dry_check_item
 from app.services.langflow_client import LangflowError
 from app.services.organizer import parse_text
@@ -26,11 +27,12 @@ router = APIRouter()
 
 
 class QuickCheckIn(BaseModel):
-    text: str
+    text: str = Field(..., max_length=5_000)
 
 
 @router.post("/api/quick-check", response_model=list[QuickCheckResult])
-def quick_check(body: QuickCheckIn, db: Session = Depends(get_db)):
+@limiter.limit(RATE_LLM)
+def quick_check(request: Request, body: QuickCheckIn, db: Session = Depends(get_db)):
     """
     Parse *text* via the Organize flow, then dry-check each draft item.
     Returns 502 if Langflow is unreachable or misconfigured.

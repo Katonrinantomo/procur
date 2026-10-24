@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     APP_NAME: str = "Procur.AI"
 
     DATABASE_URL: str = "postgresql+psycopg2://procur:procur@localhost:5432/procur"
+
+    # Comma-separated list of allowed Host header values for TrustedHostMiddleware.
+    # Override in tests or staging by setting ALLOWED_HOSTS env var.
+    ALLOWED_HOSTS: str = "localhost,127.0.0.1"
     LANGFLOW_URL: str = "http://localhost:7860"
     LANGFLOW_API_KEY: str = ""
     LANGFLOW_ORGANIZE_FLOW_ID: str = ""

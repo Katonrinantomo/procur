@@ -1,12 +1,16 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-
 import httpx
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.routers import imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
+from app.security import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,40 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+
+# ---------------------------------------------------------------------------
+# Security middleware (order matters: outermost added last)
+# ---------------------------------------------------------------------------
+
+# CORS: allow only the local Vite dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# TrustedHost: block Host-header attacks and requests from unexpected origins.
+# ALLOWED_HOSTS is comma-separated; set env var to override (e.g. in tests).
+_allowed_hosts = [h.strip() for h in settings.ALLOWED_HOSTS.split(",") if h.strip()]
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=_allowed_hosts,
+)
+
+# Security response headers
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+# Rate-limiter state and error handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(queue.router)
 app.include_router(purchases.router)

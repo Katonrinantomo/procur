@@ -25,6 +25,10 @@ pytest-asyncio==1.4.0
 python-dotenv==1.2.4
 python-multipart==0.0.32
 RapidFuzz==3.14.6
+slowapi==0.1.10
+limits==5.8.0
+deprecated==3.0.0
+wrapt==2.5.1
 SQLAlchemy==2.1.4
 starlette==1.7.0
 typing_extensions==4.16.0

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Request as StarletteRequest
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,7 @@ from app.schemas import (
     ReturnIn,
     WebQuoteOut,
 )
+from app.security import limiter, RATE_LLM
 from app.services.checker import check_item
 
 router = APIRouter()
@@ -193,7 +195,8 @@ def get_request_item(item_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/recheck", response_model=RequestItemDetail)
-def recheck_request_item(item_id: int, db: Session = Depends(get_db)):
+@limiter.limit(RATE_LLM)
+def recheck_request_item(request: StarletteRequest, item_id: int, db: Session = Depends(get_db)):
     ri = _get_or_404(db, item_id)
     check_item(ri, db)
     db.commit()

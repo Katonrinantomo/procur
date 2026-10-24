@@ -5,6 +5,18 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# ---------------------------------------------------------------------------
+# Rate limiter — single shared instance.
+# Import this from routers and main to avoid circular deps.
+# ---------------------------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
+
+# Rate limit string for LLM-touching endpoints (10 requests per minute per IP).
+RATE_LLM = "10/minute"
+
 
 def safe_http_url(url: str | None) -> str | None:
     """Loloskan hanya URL http/https dengan hostname valid, panjang <= 2048.

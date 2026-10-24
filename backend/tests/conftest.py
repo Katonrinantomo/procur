@@ -13,8 +13,10 @@ import pytest
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
-# Point the app at SQLite before importing anything that reads DATABASE_URL.
+# Point the app at SQLite before importing anything that reads settings.
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+# Allow TestClient's default host "testserver" so TrustedHostMiddleware passes.
+os.environ.setdefault("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
 
 from app.db import Base  # noqa: E402 — must come after env override
 from app.models import (  # noqa: E402
