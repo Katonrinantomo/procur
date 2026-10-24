@@ -133,11 +133,17 @@ def _is_empty_row(cells: list[Any]) -> bool:
 # Public API
 # ---------------------------------------------------------------------------
 
+# Maximum number of data rows accepted per import.
+# Rows beyond this limit are rejected with a RowError to prevent memory exhaustion.
+MAX_ROWS = 10_000
+
+
 def parse_xlsx(data: bytes) -> tuple[list[ParsedRow], list[RowError]]:
     """Parse *data* (raw .xlsx bytes) and return (rows, errors).
 
     The header row is row 1.  Data rows start at row 2.
     Errors carry the 1-based Excel row number.
+    Raises ValueError if the file contains more than MAX_ROWS data rows.
     """
     import io
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -166,8 +172,17 @@ def parse_xlsx(data: bytes) -> tuple[list[ParsedRow], list[RowError]]:
     # ---- Parse data rows ----
     parsed: list[ParsedRow] = []
     errors: list[RowError] = []
+    row_count = 0
 
     for excel_row_num, row_values in enumerate(rows_iter, start=2):
+        row_count += 1
+        if row_count > MAX_ROWS:
+            errors.append(RowError(
+                row=excel_row_num,
+                message=f"File exceeds the maximum of {MAX_ROWS} data rows. "
+                        "Split the file into smaller batches.",
+            ))
+            break
         row_list = list(row_values)
         if _is_empty_row(row_list):
             continue

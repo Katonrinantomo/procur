@@ -172,3 +172,54 @@ class TestImportHardening:
         )
         assert resp.status_code == 400
         assert "UTF-8" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# SEC-06 hardening: magic bytes and row limit
+# ---------------------------------------------------------------------------
+
+class TestImportMagicBytesAndRowLimit:
+    """Additional hardening: fake xlsx and row count limit."""
+
+    def test_fake_xlsx_wrong_magic_returns_400(self, seeded_db):
+        """A file named .xlsx but lacking the PK\\x03\\x04 header must return 400."""
+        fake_xlsx = io.BytesIO(b"Not a real xlsx file, just text content here.")
+        resp = client.post(
+            "/api/imports/purchases",
+            files={"file": ("evil.xlsx", fake_xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert resp.status_code == 400
+        assert "valid .xlsx" in resp.json()["detail"]
+
+    def test_real_xlsx_sample_passes_magic_check(self, seeded_db):
+        """The bundled sample .xlsx must pass the magic bytes check."""
+        import pathlib
+        sample_xlsx = pathlib.Path(__file__).parent.parent / "sample_data" / "purchases_sample.xlsx"
+        with open(sample_xlsx, "rb") as f:
+            resp = client.post(
+                "/api/imports/purchases",
+                files={"file": ("purchases_sample.xlsx", f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            )
+        # Must NOT be rejected at the magic-bytes stage
+        assert resp.status_code == 200
+
+    def test_xlsx_parser_row_limit(self):
+        """parse_xlsx must return an error entry when row count exceeds MAX_ROWS."""
+        import io as _io
+        import openpyxl
+        from app.services.xlsx_parser import parse_xlsx, MAX_ROWS
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # Write header
+        ws.append(["date", "po_number", "supplier", "item", "qty", "unit", "unit_price_idr"])
+        # Write MAX_ROWS + 1 data rows
+        for i in range(MAX_ROWS + 1):
+            ws.append(["2024-01-01", f"PO-{i}", "Supplier A", "Item X", 1, "pcs", 10000])
+        buf = _io.BytesIO()
+        wb.save(buf)
+        raw = buf.getvalue()
+
+        _rows, errors = parse_xlsx(raw)
+        assert any("exceeds the maximum" in e.message for e in errors), \
+            f"Expected a row-limit error, got: {errors}"

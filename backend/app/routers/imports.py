@@ -275,6 +275,8 @@ def download_template():
 # ---------------------------------------------------------------------------
 
 _MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+# Magic bytes for the ZIP/OOXML container used by .xlsx files.
+_XLSX_MAGIC = b"PK\x03\x04"
 
 
 @router.post("/api/imports/purchases", response_model=ImportSummary)
@@ -291,16 +293,24 @@ def import_purchases(
             detail="Only .xlsx and .csv files are supported",
         )
 
-    raw = file.file.read()
+    # Read one byte more than the limit so we can detect oversized files
+    # without loading the entire stream into memory first.
+    raw = file.file.read(_MAX_UPLOAD_BYTES + 1)
 
     # Reject files over 5 MB
     if len(raw) > _MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"File is too large. Maximum size is 5 MB; received {len(raw) / 1024 / 1024:.1f} MB.",
+            detail=f"File is too large. Maximum size is 5 MB.",
         )
 
     if filename.endswith(".xlsx"):
+        # Validate magic bytes — must start with the ZIP/OOXML header.
+        if not raw[:4] == _XLSX_MAGIC:
+            raise HTTPException(
+                status_code=400,
+                detail="File does not appear to be a valid .xlsx file (invalid header).",
+            )
         parsed_rows, parse_errors = parse_xlsx(raw)
         return _insert_rows(parsed_rows, parse_errors, source="excel", db=db)
 
