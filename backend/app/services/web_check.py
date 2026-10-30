@@ -44,7 +44,8 @@ def _cache_key(raw_name: str) -> str:
 
 def _flow_input(raw_name: str) -> str:
     """Return the search string sent to the Web check flow."""
-    return f"harga {normalize_name(raw_name)}"
+    query = f"harga {normalize_name(raw_name)} site:tokopedia.com OR site:shopee.co.id OR site:blibli.com OR site:lazada.co.id"
+    return query
 
 
 def _fetch_cached(item_key: str, session: Session) -> list[WebQuote]:

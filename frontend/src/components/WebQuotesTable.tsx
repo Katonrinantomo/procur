@@ -51,7 +51,12 @@ export default function WebQuotesTable({ quotes, referencePrice }: WebQuotesTabl
               <td style={{ padding: '11px 10px 11px 0' }}>{q.seller ?? '—'}</td>
               <td style={{ padding: '11px 10px' }}>
                 {safeUrl(q.url) ? (
-                  <a href={safeUrl(q.url)!} target="_blank" rel="noopener noreferrer" style={{ color: '#1A1A1A' }}>
+                  <a 
+                    href={safeUrl(q.url)!} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    style={{ color: '#2563EB', textDecoration: 'underline' }} // Biru & Bergaris Bawah
+                  >
                     {q.title ?? q.url}
                   </a>
                 ) : (

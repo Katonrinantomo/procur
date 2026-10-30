@@ -3,6 +3,7 @@ Shared security utilities for Procur.AI backend.
 """
 from __future__ import annotations
 
+import ipaddress
 from urllib.parse import urlparse
 
 from slowapi import Limiter
@@ -23,6 +24,7 @@ def safe_http_url(url: str | None) -> str | None:
 
     Menolak skema javascript:, file:, data:, ftp:, URL tanpa hostname,
     dan URL yang melebihi 2048 karakter.
+    Blokir juga IP lokal/privat (loopback, link-local, private) untuk cegah SSRF.
     URL yang lolos dikembalikan apa adanya (setelah strip spasi).
     URL yang gagal dikembalikan None.
     """
@@ -39,4 +41,15 @@ def safe_http_url(url: str | None) -> str | None:
         return None
     if not p.hostname:
         return None
+    # Blokir IP lokal/privat untuk mencegah SSRF
+    try:
+        ip = ipaddress.ip_address(p.hostname)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            return None
+    except ValueError:
+        # Bukan IP numerik, berarti domain teks.
+        # Blokir localhost secara eksplisit (loopback via hostname).
+        if p.hostname and p.hostname.lower() in ("localhost",):
+            return None
+        pass
     return url
