@@ -15,10 +15,10 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.routers.auth import CurrentUser, require_role
-from app.models import AuditLog
+from app.models import User, AuditLog
 from app.db import get_db
 from app.models import Action, Flag, Item, Purchase, Request, RequestItem, Stock, WebQuote
-from app.schemas import (
+from app.schemas import (AuditLogOut,
     ActionOut,
     ApproveIn,
     FlagOut,
@@ -147,6 +147,27 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         .all()
     )
 
+    # Latest AuditLog for this row (joined with User to get the actor's role)
+    from app.models import AuditLog
+    latest_audit = (
+        db.execute(
+            select(AuditLog, User.role)
+            .join(User, User.id == AuditLog.user_id)
+            .where(AuditLog.request_item_id == ri.id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(1)
+        ).first()
+    )
+    latest_audit_log: AuditLogOut | None = None
+    if latest_audit is not None:
+        audit_row, actor_role = latest_audit
+        latest_audit_log = AuditLogOut(
+            action=audit_row.action,
+            note=audit_row.note,
+            actor_role=actor_role,
+            created_at=audit_row.created_at,
+        )
+
     return RequestItemDetail(
         id=ri.id,
         request_id=ri.request_id,
@@ -177,6 +198,7 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         last_purchases=last_purchases,
         web_quotes=web_quotes_out,
         actions=[ActionOut.model_validate(a) for a in actions],
+        latest_audit_log=latest_audit_log,
     )
 
 

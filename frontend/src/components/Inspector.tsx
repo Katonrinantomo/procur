@@ -7,11 +7,13 @@ import SupplierPanel from './SupplierPanel'
 import ReturnDialog from './ReturnDialog'
 import { formatRupiah, formatRupiahWithPrefix, formatPct } from '../lib/format'
 import { useApprove, useReturn } from '../hooks/useItemActions'
+import { fetchWithAuth } from '../lib/api'
 import type { RequestItemDetail } from '../types/api'
 
 interface InspectorProps {
   detail: RequestItemDetail | undefined
   isLoading: boolean
+  role?: string | null
 }
 
 function InspectorSkeleton() {
@@ -32,7 +34,7 @@ function InspectorSkeleton() {
   )
 }
 
-export default function Inspector({ detail, isLoading }: InspectorProps) {
+export default function Inspector({ detail, isLoading, role }: InspectorProps) {
   const [supplierPanelOpen, setSupplierPanelOpen] = useState(false)
   const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [rechecking, setRechecking] = useState(false)
@@ -208,7 +210,7 @@ export default function Inspector({ detail, isLoading }: InspectorProps) {
               Compare suppliers
             </button>
 
-            {canAct && (
+            {canAct && role === 'owner' && (
               <>
                 <button
                   type="button"
@@ -248,6 +250,11 @@ export default function Inspector({ detail, isLoading }: InspectorProps) {
                 </button>
               </>
             )}
+            {canAct && role !== 'owner' && role != null && (
+              <span style={{ fontSize: 13, color: '#9E9E99', fontStyle: 'italic' }}>
+                Waiting for approval
+              </span>
+            )}
 
             {canRecheck && (
               <button
@@ -255,7 +262,7 @@ export default function Inspector({ detail, isLoading }: InspectorProps) {
                 disabled={rechecking}
                 onClick={() => {
                   setRechecking(true)
-                  void fetch(`/api/request-items/${detail.id}/recheck`, { method: 'POST' })
+                  void fetchWithAuth(`/api/request-items/${detail.id}/recheck`, { method: 'POST' })
                     .then(() => Promise.all([
                       qc.invalidateQueries({ queryKey: ['request-item', detail.id] }),
                       qc.invalidateQueries({ queryKey: ['queue'] }),

@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchWithAuth } from '../lib/api'
 import type { RequestItemDetail } from '../types/api'
 
 async function postApprove(itemId: number): Promise<RequestItemDetail> {
-  const res = await fetch(`/api/request-items/${itemId}/approve`, {
+  const res = await fetchWithAuth(`/api/request-items/${itemId}/approve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
@@ -12,7 +13,7 @@ async function postApprove(itemId: number): Promise<RequestItemDetail> {
 }
 
 async function postReturn(itemId: number, note: string): Promise<RequestItemDetail> {
-  const res = await fetch(`/api/request-items/${itemId}/return`, {
+  const res = await fetchWithAuth(`/api/request-items/${itemId}/return`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ note }),

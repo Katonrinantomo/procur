@@ -389,16 +389,18 @@ def seed(empty_today: bool = False) -> None:
     from sqlalchemy import select as sa_select
 
     session = SessionLocal()
-    # Seed default users (Maker-Checker)
-    if not session.query(User).first():
-        session.add_all([
-            User(username="purchasing", hashed_password=hash_password("password123"), role="purchasing"),
-            User(username="owner", hashed_password=hash_password("password123"), role="owner"),
-            User(username="finance", hashed_password=hash_password("password123"), role="finance"),
-        ])
-        session.flush()
     try:
         _wipe(session)
+        
+        # Seed default users (Maker-Checker)
+        if not session.query(User).first():
+            session.add_all([
+                User(username="purchasing", hashed_password=hash_password("password123"), role="purchasing"),
+                User(username="owner", hashed_password=hash_password("password123"), role="owner"),
+                User(username="finance", hashed_password=hash_password("password123"), role="finance"),
+            ])
+            session.flush()
+
         suppliers = _seed_suppliers(session)
         items = _seed_items(session)
         _seed_purchases_and_stock(session, suppliers, items)
@@ -421,10 +423,11 @@ def seed(empty_today: bool = False) -> None:
     finally:
         session.close()
 
-
 def _wipe(session) -> None:
     """Drop all rows in dependency order."""
     for tbl in [
+        "audit_log",
+        "users",
         "actions",
         "flags",
         "web_quotes",

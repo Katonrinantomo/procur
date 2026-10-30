@@ -8,18 +8,39 @@ import AddRequestsDialog from './components/AddRequestsDialog'
 import ImportPage from './components/ImportPage'
 import HistoryPage from './components/HistoryPage'
 import QuickCheckPage from './components/QuickCheckPage'
+import LoginPage from './components/LoginPage'
 import { useQueue } from './hooks/useQueue'
 import { useRequestItem } from './hooks/useRequestItem'
 import { useHash } from './hooks/useHash'
 import type { QueueRow } from './types/api'
 
 export default function App() {
+  const [token] = useState<string | null>(
+    () => localStorage.getItem('token')
+  )
+  const [role] = useState<string | null>(
+    () => localStorage.getItem('role')
+  )
+
+  if (!token) {
+    return <LoginPage onLogin={() => window.location.reload()} />
+  }
+
   const hash = useHash()
   const { data: queueData, isLoading: queueLoading, isError: queueError, refetch } = useQueue()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeFilter, setActiveFilter] = useState('All')
   const [dialogOpen, setDialogOpen] = useState(false)
   const addBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Role-based default tab on first load only (not on every hash change)
+  const initialHashRef = useRef<string | null>(null)
+  if (initialHashRef.current === null && role) {
+    initialHashRef.current = role === 'finance' ? '#history' : '#today'
+    if (window.location.hash !== initialHashRef.current) {
+      window.location.hash = initialHashRef.current
+    }
+  }
 
   const { data: detail, isLoading: detailLoading } = useRequestItem(selectedId)
 
@@ -57,6 +78,8 @@ export default function App() {
       <AppHeader
         onAddRequests={() => setDialogOpen(true)}
         addRequestsRef={addBtnRef}
+        role={role}
+        hash={hash}
       />
       {dialogOpen && (
         <AddRequestsDialog
@@ -175,7 +198,7 @@ export default function App() {
               selectedId={selectedId}
               onSelect={setSelectedId}
             />
-            <Inspector detail={detail} isLoading={detailLoading} />
+            <Inspector detail={detail} isLoading={detailLoading} role={role} />
           </>
         )}
       </main>}

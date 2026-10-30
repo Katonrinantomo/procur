@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 interface AppHeaderProps {
   onAddRequests?: () => void
   addRequestsRef?: React.Ref<HTMLButtonElement>
+  role?: string | null
+  hash?: string
 }
 
 type AiStatus = 'ok' | 'down' | 'not configured'
@@ -44,23 +46,15 @@ function tabToHash(tab: NavTab): string {
   return '#' + tab.toLowerCase()
 }
 
-export default function AppHeader({ onAddRequests, addRequestsRef }: AppHeaderProps) {
+export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }: AppHeaderProps) {
   const aiStatus = useAiStatus()
-
-  // Derive active tab from current hash
-  const [currentHash, setCurrentHash] = useState(() => window.location.hash || '#today')
-  useEffect(() => {
-    function onHashChange() { setCurrentHash(window.location.hash || '#today') }
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
 
   function handleTabClick(tab: NavTab) {
     window.location.hash = tabToHash(tab)
   }
 
   function activeTab(): NavTab {
-    const h = currentHash.toLowerCase()
+    const h = (hash || window.location.hash || '#today').toLowerCase()
     if (h === '#history') return 'History'
     if (h === '#import') return 'Import'
     if (h === '#quick-check') return 'Quick check'
@@ -118,24 +112,54 @@ export default function AppHeader({ onAddRequests, addRequestsRef }: AppHeaderPr
           ))}
         </nav>
       </div>
-      <button
-        ref={addRequestsRef}
-        type="button"
-        onClick={onAddRequests}
-        style={{
-          height: 40,
-          padding: '0 16px',
-          border: 0,
-          borderRadius: 10,
-          background: '#1A1A1A',
-          color: '#FFFFFF',
-          font: 'inherit',
-          fontSize: 14,
-          cursor: 'pointer',
-        }}
-      >
-        Add requests
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        {role && (
+          <span style={{ fontSize: 12, color: '#4A4A46' }}>
+            Logged in as: <span style={{ fontWeight: 500, color: '#1A1A1A' }}>{role}</span>
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.removeItem('token')
+            localStorage.removeItem('role')
+            window.location.reload()
+          }}
+          style={{
+            height: 40,
+            padding: '0 12px',
+            border: '1px solid #D9D9D5',
+            borderRadius: 8,
+            background: 'transparent',
+            color: '#4A4A46',
+            font: 'inherit',
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          Logout
+        </button>
+        {role !== 'finance' && (
+          <button
+            ref={addRequestsRef}
+            type="button"
+            onClick={onAddRequests}
+            style={{
+              height: 40,
+              padding: '0 16px',
+              border: 0,
+              borderRadius: 10,
+              background: '#1A1A1A',
+              color: '#FFFFFF',
+              font: 'inherit',
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            Add requests
+          </button>
+        )}
+      </div>
     </header>
   )
 }
