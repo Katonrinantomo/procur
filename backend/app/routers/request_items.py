@@ -14,6 +14,8 @@ from fastapi import Request as StarletteRequest
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
+from app.routers.auth import CurrentUser, require_role
+from app.models import AuditLog
 from app.db import get_db
 from app.models import Action, Flag, Item, Purchase, Request, RequestItem, Stock, WebQuote
 from app.schemas import (
@@ -211,6 +213,7 @@ def approve_request_item(
     item_id: int,
     body: ApproveIn = ApproveIn(),
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role("owner")),
 ):
     ri = _get_or_404(db, item_id)
     ri.status = "approved"
@@ -219,6 +222,13 @@ def approve_request_item(
         action="approve",
         note=None,
         actor=body.actor,
+    ))
+    # Audit log — owner-only action
+    db.add(AuditLog(
+        request_item_id=ri.id,
+        user_id=current_user.id,
+        action="approve",
+        note=None,
     ))
     db.commit()
     db.refresh(ri)
@@ -234,6 +244,7 @@ def return_request_item(
     item_id: int,
     body: ReturnIn,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner")),
 ):
     ri = _get_or_404(db, item_id)
     ri.status = "returned"
@@ -242,6 +253,13 @@ def return_request_item(
         action="return",
         note=body.note,
         actor=body.actor,
+    ))
+    # Audit log — owner-only action
+    db.add(AuditLog(
+        request_item_id=ri.id,
+        user_id=current_user.id,
+        action="return",
+        note=body.note,
     ))
     db.commit()
     db.refresh(ri)

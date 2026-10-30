@@ -17,7 +17,9 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.db import SessionLocal, engine
+from app.security import hash_password
 from app.models import (
+    User,
     Action,
     Base,
     Flag,
@@ -387,6 +389,14 @@ def seed(empty_today: bool = False) -> None:
     from sqlalchemy import select as sa_select
 
     session = SessionLocal()
+    # Seed default users (Maker-Checker)
+    if not session.query(User).first():
+        session.add_all([
+            User(username="purchasing", hashed_password=hash_password("password123"), role="purchasing"),
+            User(username="owner", hashed_password=hash_password("password123"), role="owner"),
+            User(username="finance", hashed_password=hash_password("password123"), role="finance"),
+        ])
+        session.flush()
     try:
         _wipe(session)
         suppliers = _seed_suppliers(session)
