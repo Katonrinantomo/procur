@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings, validate_settings
-from app.routers import auth, imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
+from app.routers import audit_logs, auth, imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
 from app.security import limiter
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
+app.include_router(audit_logs.router)
 app.include_router(queue.router)
 app.include_router(purchases.router)
 app.include_router(request_items_list.router)  # must be before request_items (has /{id} param)

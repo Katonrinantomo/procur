@@ -101,6 +101,7 @@ export interface RequestItemDetail {
   last_purchases: PurchaseOut[] | null
   web_quotes: WebQuoteOut[] | null
   actions: ActionOut[]
+  latest_audit_log?: AuditLogRow | null
 }
 
 export interface SupplierSummary {
@@ -189,4 +190,18 @@ export interface QuickCheckResult {
   flags: FlagOut[]
   status: string
   check_error: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+export interface AuditLogRow {
+  id: number
+  request_item_id: number | null
+  item_name: string | null
+  actor_role: string
+  action: string
+  note: string | null
+  created_at: string
 }

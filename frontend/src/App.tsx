@@ -8,6 +8,7 @@ import AddRequestsDialog from './components/AddRequestsDialog'
 import ImportPage from './components/ImportPage'
 import HistoryPage from './components/HistoryPage'
 import QuickCheckPage from './components/QuickCheckPage'
+import AuditLogPage from './components/AuditLogPage'
 import LoginPage from './components/LoginPage'
 import { useQueue } from './hooks/useQueue'
 import { useRequestItem } from './hooks/useRequestItem'
@@ -69,6 +70,7 @@ export default function App() {
     if (newRows.length > 0) setSelectedId(newRows[0].id)
   }
 
+  const isAudit = hash === '#audit'
   const isImport = hash === '#import'
   const isHistory = hash === '#history'
   const isQuickCheck = hash === '#quick-check'
@@ -91,8 +93,9 @@ export default function App() {
       {isImport && <ImportPage />}
       {isHistory && <HistoryPage />}
       {isQuickCheck && <QuickCheckPage />}
+      {isAudit && <AuditLogPage />}
 
-      {!isImport && !isHistory && !isQuickCheck && <main style={{
+      {!isImport && !isHistory && !isQuickCheck && !isAudit && <main style={{
         width: '100%',
         maxWidth: 1240,
         margin: '0 auto',

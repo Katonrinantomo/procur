@@ -38,11 +38,12 @@ function useAiStatus(): AiStatus {
   return status
 }
 
-const NAV_TABS = ['Today', 'Quick check', 'History', 'Import'] as const
+const NAV_TABS = ['Today', 'Quick check', 'History', 'Import', 'Audit Log'] as const
 type NavTab = typeof NAV_TABS[number]
 
 function tabToHash(tab: NavTab): string {
   if (tab === 'Quick check') return '#quick-check'
+  if (tab === 'Audit Log') return '#audit'
   return '#' + tab.toLowerCase()
 }
 
@@ -58,10 +59,12 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
     if (h === '#history') return 'History'
     if (h === '#import') return 'Import'
     if (h === '#quick-check') return 'Quick check'
+    if (h === '#audit') return 'Audit Log'
     return 'Today'
   }
 
   const active = activeTab()
+  const showAuditLog = role === 'owner' || role === 'finance'
 
   return (
     <header style={{
@@ -91,7 +94,7 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
           )}
         </div>
         <nav aria-label="Main" style={{ display: 'flex', gap: 4, fontSize: 14 }}>
-          {NAV_TABS.map((tab) => (
+          {NAV_TABS.filter((tab) => tab !== 'Audit Log' || showAuditLog).map((tab) => (
             <button
               key={tab}
               type="button"
