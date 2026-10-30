@@ -112,14 +112,12 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         ]
     else:
         # web quotes (covers "web" and "none" paths)
-        # Fetch quotes linked by request_item_id OR by item_key (standalone cache rows).
-        from app.services.matcher import normalize_name as _norm
-        item_key = _norm(ri.raw_name)
+        # Only show quotes that were actually used — linked to this row by
+        # link_quotes_to_row during check_item().  No item_key fallback, no
+        # request_item_id IS NULL queries.
         wq_rows = (
             db.execute(
-                select(WebQuote).where(
-                    (WebQuote.request_item_id == ri.id) | (WebQuote.item_key == item_key)
-                )
+                select(WebQuote).where(WebQuote.request_item_id == ri.id)
             )
             .scalars()
             .all()

@@ -180,16 +180,23 @@ def get_web_quotes(raw_name: str, session: Session) -> tuple[list[WebQuote], str
     except (LangflowError, Exception) as exc:  # noqa: BLE001
         msg = f"web_check failed: {exc}"
         logger.warning(msg)
-        # Return any stale quotes for this key (skips the age filter)
-        stale = (
+        # Return any stale quotes for this key (skips the age filter),
+        # applying the same fuzzy-match threshold so only relevant quotes are returned.
+        stale_candidates = (
             session.execute(
                 select(WebQuote)
-                .where(WebQuote.item_key == key)
+                .where(WebQuote.item_key.isnot(None))
             )
             .scalars()
             .all()
         )
-        return stale, msg
+        stale_matched: list[WebQuote] = []
+        for row in stale_candidates:
+            if row.item_key == key:
+                stale_matched.append(row)
+            elif fuzz.token_set_ratio(key, row.item_key) >= settings.MATCH_THRESHOLD:
+                stale_matched.append(row)
+        return stale_matched, msg
 
     new_quotes = _save_quotes(key, key, offers, session)
     return new_quotes, None

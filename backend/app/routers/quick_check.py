@@ -32,18 +32,31 @@ class QuickCheckIn(BaseModel):
 
 @router.post("/api/quick-check", response_model=list[QuickCheckResult])
 @limiter.limit(RATE_LLM)
-def quick_check(request: Request, body: QuickCheckIn, db: Session = Depends(get_db)):
+def quick_check(
+    request: Request,
+    body: QuickCheckIn,
+    db: Session = Depends(get_db),
+) -> list[QuickCheckResult]:
     """
     Parse *text* via the Organize flow, then dry-check each draft item.
     Returns 502 if Langflow is unreachable or misconfigured.
     Per-item check errors are included inline (not a 502).
     """
+    # Same config check as /api/requests/parse — both flows must be configured.
     if not settings.LANGFLOW_ORGANIZE_FLOW_ID:
         raise HTTPException(
             status_code=502,
             detail=(
                 "The Organize flow isn't configured. "
                 "Set LANGFLOW_ORGANIZE_FLOW_ID in backend/.env."
+            ),
+        )
+    if not settings.LANGFLOW_WEBCHECK_FLOW_ID:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "The Web check flow isn't configured. "
+                "Set LANGFLOW_WEBCHECK_FLOW_ID in backend/.env."
             ),
         )
 

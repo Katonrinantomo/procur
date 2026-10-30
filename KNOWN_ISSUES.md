@@ -1,64 +1,38 @@
 # Procur.AI — Laporan Temuan Bug & Handover (Known Issues)
 
-Dokumen ini dibuat berdasarkan hasil observasi *End-to-End* (E2E) menggunakan agen AI lokal dan merujuk pada temuan di `AUDIT.md`. 
+Dokumen ini dibuat berdasarkan hasil observasi *End-to-End* (E2E) dan merujuk pada temuan di `AUDIT.md` serta `Security Recon Report`. 
 
-**Status Aplikasi:** Fitur inti (Organize, Check via History, Check via Web, Queue, Inspector, History Page) sudah berjalan dengan baik. Namun, terdapat beberapa *bug* kritis pada *edge cases* yang harus segera diperbaiki sebelum penjurian/submission.
+**Status Aplikasi:** Fitur inti berjalan 100%. Seluruh bug kritis (Critical/High) pada *Web Check*, *Quick Check*, dan *Security* telah diselesaikan pada branch `security`.
 
 ---
 
 ## 🚨 1. Critical Issues (Wajib Diperbaiki)
+*(Tidak ada. Seluruh isu Critical telah diselesaikan).*
 
-### 1.1. Link Palsu (Dummy URLs) pada Web Quotes (Ref: AUDIT.md C2)
-* **Lokasi:** `backend/app/seed.py` (baris sekitar 591-606)
-* **Deskripsi:** Data *seed* untuk barang "Solenoid valve" menggunakan URL palsu (contoh: `https://tokopedia.com/a`, `https://shopee.co.id/b`). Jika juri mengklik link "Offer" di panel Inspector, halaman akan error/not found.
-* **Cara Reproduksi:** 
-  1. Buka halaman Today.
-  2. Klik baris "Solenoid valve 24V DC, 1/2"".
-  3. Di panel Inspector (kanan), klik salah satu teks Offer (misal: Tokopedia).
-* **Ekspektasi:** Terbuka halaman produk asli.
-* **Aktual:** Browser membuka halaman 404/error.
-* **Rekomendasi:** Cari 3 link produk asli di Tokopedia/Shopee, masukkan ke `seed.py`, atau ubah teks URL menjadi non-klikabel (plain text) jika tidak ingin repot mencari link asli.
-
-### 1.2. Git Repository Belum Di-push (Ref: AUDIT.md C1)
-* **Lokasi:** Folder root proyek.
-* **Deskripsi:** Proyek belum di-commit dan di-push ke repositori GitHub. Ini sangat berisiko jika laptop bermasalah, dan tidak ada yang bisa dikumpulkan ke panitia.
-* **Rekomendasi:** Segera jalankan `git add .`, `git commit`, dan `git push` ke repository (misal: `github.com/Katonrinantomoproc/procur`).
+- [x] **1.1. Link Palsu (Dummy URLs) pada Web Quotes (Ref: AUDIT.md C2 / SEC-07)** — *Resolved*. Telah diganti menggunakan Web Check Agent (Serper API) dan validasi SSRF.
+- [x] **1.2. Git Repository Belum Di-push (Ref: AUDIT.md C1)** — *Resolved*. Seluruh pekerjaan telah di-commit dan di-push ke branch `security`.
 
 ---
 
-## ⚠️ 2. High Priority Issues (Bug Logika Backend)
+## ⚠️ 2. High Priority Issues
+*(Tidak ada. Seluruh isu High telah diselesaikan).*
 
-### 2.1. Error 500 (Internal Server Error) pada Fitur Quick Check (Ref: AUDIT.md H1)
-* **Lokasi:** `backend/app/services/web_check.py` & `backend/app/routers/quick_check.py`
-* **Deskripsi:** Jika pengguna mengetik barang yang **belum ada di histori** (baru) dan **belum ada di cache web**, fitur Quick Check akan *crash* (HTTP 500). Ini karena `get_web_quotes` mencoba melakukan `session.refresh()` pada objek `RequestItem` yang belum tersimpan di database.
-* **Cara Reproduksi:**
-  1. Buka tab Quick check.
-  2. Ketik: `Kain sutra putih, 10 yard`.
-  3. Klik Check.
-* **Ekspektasi:** Muncul kartu hasil "New item" dengan harga web (atau "No price reference found").
-* **Aktual:** Layar error 500.
-* **Rekomendasi:** Ubah `quick_check` menjadi *plain def* endpoint, dan pastikan `get_web_quotes` tidak memanggil `session.refresh()` pada *shim* (objek sementara) yang belum masuk DB.
-
-### 2.2. Inkonsistensi Referensi Harga Web (Ref: AUDIT.md H2)
-* **Lokasi:** `backend/app/services/pricing.py` & `routers/request_items.py`
-* **Deskripsi:** `get_web_quotes` mencari cache dengan *fuzzy matching* (kemiripan nama), tetapi perhitungan referensi di inspector menggunakan *exact match* (harus sama persis). Ini menyebabkan referensi harga bisa `null` padahal kuotasi ada di cache.
-* **Rekomendasi:** Pastikan fungsi mengembalikan daftar *quote* yang benar-benar dipakai, lalu hitung median dari daftar yang sama. Jangan pernah melakukan query dengan `request_item_id IS NULL` untuk referensi.
+- [x] **2.1. Error 500 pada Fitur Quick Check (Ref: AUDIT.md H1 / SEC-05)** — *Resolved*. Endpoint diubah menjadi plain `def`, dan `session.refresh()` pada objek *shim* telah dihapus.
+- [x] **2.2. Inkonsistensi Referensi Harga Web (Ref: AUDIT.md H2)** — *Resolved*. Logika *fuzzy match* dan *exact match* telah disinkronkan di `get_web_quotes`.
+- [x] **2.3. Validasi URL SSRF yang Terlalu Ketat (Ref: SEC-10)** — *Resolved*. `safe_http_url` di `security.py` telah diperbaiki agar mengizinkan URL publik (Tokopedia/Shopee) namun memblokir IP privat/localhost.
 
 ---
 
-## 🔍 3. Medium / Low Issues
+## 🔍 3. Medium / Low Issues (Opsional)
 
-### 3.1. Error Handling Langflow yang Kurang Ramah (Ref: AUDIT.md M1)
-* **Deskripsi:** Jika `LANGFLOW_ORGANIZE_FLOW_ID` kosong atau salah, backend mengembalikan error mentah `405 Method Not Allowed` (atau 404), alih-alih pesan yang mudah dipahami seperti *"Langflow is not configured"*.
-* **Rekomendasi:** Gunakan pengecekan konfigurasi yang sama seperti di endpoint `/api/requests/parse` untuk endpoint `/api/quick-check`.
-
-### 3.2. Batas Ukuran File Import Belum Ada (Ref: AUDIT.md M2)
-* **Deskripsi:** Fitur upload Excel/CSV saat ini belum membatasi ukuran file (bisa jadi juri mengunggah file 100MB dan membuat server *hang*).
-* **Rekomendasi:** Batasi ukuran file maksimal 5MB dan kembalikan error 413 (Payload Too Large) jika melebihi batas.
+- [x] **3.1. Error Handling Langflow yang Kurang Ramah (Ref: AUDIT.md M1)** — *Resolved*. Quick check kini menggunakan pengecekan konfigurasi yang sama dengan endpoint Parse.
+- [ ] **3.2. Batas Ukuran File Import (Ref: AUDIT.md M2 / SEC-06)** — *Partially Resolved*. Validasi ekstensi `.xlsx` sudah ada, magic bytes belum sepenuhnya diimplementasikan.
+- [ ] **3.3. Content-Security-Policy (Ref: SEC-13)** — *Open*. Belum dipasang (hanya header dasar).
+- [ ] **3.4. Matcher Terlalu Longgar (Ref: AUDIT.md M4 / SEC-14)** — *Open*. `token_set_ratio` masih bisa salah cocok untuk kata pendek.
 
 ---
 
 ## 📝 Catatan untuk Rekan Tim
-- Semua angka (harga, persentase, kalkulasi total) sudah **100% akurat** karena dihitung di Python, bukan oleh AI. Jangan ubah logika matematika di `pricing.py`.
-- Untuk pengujian mandiri, pastikan Docker menyala (`docker compose up -d`), backend menyala, Langflow menyala, dan file `backend/.env` sudah terisi `LANGFLOW_API_KEY` serta Flow ID yang valid.
-- Gunakan perintah `python -m app.seed --reset --empty-today` untuk mereset ulang data demo sebelum presentasi.
+- Semua angka (harga, persentase, kalkulasi total) sudah **100% akurat** karena dihitung di Python, bukan oleh AI.
+- Backend kini memaksa pencarian Serper API hanya ke e-commerce lokal (Tokopedia, Shopee, Blibli, Lazada).
+- Untuk pengujian mandiri, jalankan `./start.sh` dan gunakan `python -m app.seed --reset --empty-today` untuk mereset data demo.
