@@ -90,10 +90,14 @@ def match_item(raw_name: str, session: Session) -> Item | None:
     for item in items:
         candidates = [item.name] + (item.aliases or [])
         for candidate in candidates:
-            score = fuzz.token_set_ratio(query, normalize_name(candidate))
-            if score > best_score:
-                best_score = score
-                best_item = item
+            ts_score = fuzz.token_set_ratio(query, normalize_name(candidate))
+            tr_score = fuzz.token_sort_ratio(query, normalize_name(candidate))
+            # Require BOTH token_set_ratio ≥ threshold AND token_sort_ratio ≥ 70
+            # so short / partial names don't accidentally match.
+            if ts_score >= threshold and tr_score >= 70:
+                if ts_score > best_score:
+                    best_score = ts_score
+                    best_item = item
 
     if best_score >= threshold:
         return best_item

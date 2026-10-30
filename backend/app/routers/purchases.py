@@ -100,7 +100,15 @@ def list_purchases(
         stmt = stmt.where(Purchase.supplier_id == supplier_id)
 
     if search:
-        term = f"%{search}%"
+        # Escape SQL LIKE wildcard characters in user input before wrapping
+        # with % so the surrounding % act as wildcards but the search term
+        # itself is treated literally.
+        escaped = (
+            search.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        term = f"%{escaped}%"
         # Cast aliases JSON column to Text for LIKE search (works on SQLite and PostgreSQL)
         stmt = stmt.where(
             or_(
