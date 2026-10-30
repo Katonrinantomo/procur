@@ -185,6 +185,7 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         history_count=ri.history_count,
         usual_qty=usual_qty,
         status=ri.status,
+        risk_score=ri.risk_score,
         check_error=ri.check_error,
         checked_at=ri.checked_at,
         requested_by=req.requested_by,

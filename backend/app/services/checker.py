@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Flag, Item, Purchase, RequestItem, Stock, Supplier, WebQuote
 from app.services import flags as flag_rules
+from app.services.flags import calculate_risk_score
 from app.services import pricing
 from app.services.matcher import match_item, normalize_name
 from app.services.web_check import get_web_quotes, link_quotes_to_row
@@ -175,8 +176,13 @@ def _do_check(row: RequestItem, session: Session) -> None:  # noqa: C901
         if result:
             new_flags.append(result)
 
+    flags: list[Flag] = []
     for code, message in new_flags:
-        session.add(Flag(request_item_id=row.id, code=code, message=message))
+        flag = Flag(request_item_id=row.id, code=code, message=message)
+        session.add(flag)
+        flags.append(flag)
+
+    row.risk_score = calculate_risk_score([f.code for f in flags], row.diff_pct)
 
     # ------------------------------------------------------------------
     # 6. Status

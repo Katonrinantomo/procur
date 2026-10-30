@@ -29,6 +29,7 @@ class QueueRow(BaseModel):
     requested_by: Optional[str]
     requested_at: datetime
     flag_codes: list[str]
+    risk_score: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -114,6 +115,7 @@ class RequestItemDetail(BaseModel):
     history_count: Optional[int]
     usual_qty: Optional[int]         # median past purchase qty (for QTY_UNUSUAL detail)
     status: str
+    risk_score: int = 0
     check_error: Optional[str]
     checked_at: Optional[datetime]
 

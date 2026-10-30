@@ -110,6 +110,7 @@ def get_queue(
                 requested_by=req.requested_by,
                 requested_at=req.requested_at,
                 flag_codes=flag_codes.get(ri.id, []),
+                risk_score=ri.risk_score,
             )
         )
 

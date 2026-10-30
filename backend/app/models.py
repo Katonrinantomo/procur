@@ -137,6 +137,8 @@ class RequestItem(Base):
     history_count: Mapped[int | None] = mapped_column(Integer)
     # status: pending | checked | new | flagged | approved | returned
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    # 0–100 composite risk score (flags + |diff_pct|); 0 = no risk.
+    risk_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     check_error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

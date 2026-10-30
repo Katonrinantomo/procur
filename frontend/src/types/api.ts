@@ -18,6 +18,7 @@ export interface QueueRow {
   requested_by: string | null
   requested_at: string  // ISO datetime string
   flag_codes: string[]
+  risk_score: number
 }
 
 export interface StatusCounts {
@@ -88,6 +89,7 @@ export interface RequestItemDetail {
   history_count: number | null
   usual_qty: number | null
   status: string
+  risk_score: number
   check_error: string | null
   checked_at: string | null
   requested_by: string | null

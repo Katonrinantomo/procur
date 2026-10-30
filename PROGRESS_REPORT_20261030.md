@@ -53,3 +53,12 @@ Semua perubahan ini berhasil menyelesaikan temuan **AUDIT H1, H2, M1**, dan **SE
 ## Langkah Selanjutnya (Next Steps)
 1.  **Handoff:** Berikan informasi ke tim bahwa *Web Check Flow* dan *Quick Check* sudah stabil dan siap untuk presentasi Hackathon.
 2.  **Fase 2 (Security):** Autentikasi (SEC-01) dan Audit Log masih belum dikerjakan dan menjadi PR jangka panjang.
+
+---
+
+## Sektor 2 (Backend & Business Logic) - SELESAI
+- **Implementasi Risk Score (0-100):** Membuat fungsi `calculate_risk_score` di `flags.py` yang menghitung risiko murni menggunakan Python (berdasarkan bobot flag: PRICE_ABOVE_REF +30, STOCK_COVER_HIGH +20, NEW_SUPPLIER +10, dan tambahan poin dari besaran `diff_pct`). Tidak ada perhitungan dari LLM.
+- **Migrasi Database:** Menambahkan kolom `risk_score` (Integer) pada tabel `request_items` via Alembic.
+- **Update Check Engine & Seed:** Memastikan fungsi `_do_check` di `checker.py` dan proses seeding menyimpan nilai `risk_score` ke database.
+- **Update UI Inspector:** Menampilkan *badge* "Risk Score: X/100" di panel Inspector Frontend, dengan warna dinamis (Merah >50, Kuning 20-49, Hijau <20).
+- **Hasil Uji:** Seed berhasil, dan query database menunjukkan skor yang akurat (misal: Work gloves = 37, V-belt = 40).

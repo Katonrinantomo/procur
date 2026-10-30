@@ -11,6 +11,36 @@ from __future__ import annotations
 
 from statistics import median
 
+# Points contributed by each flag code toward the composite risk score.
+FLAG_RISK_WEIGHT: dict[str, int] = {
+    "PRICE_ABOVE_REF": 30,
+    "STOCK_COVER_HIGH": 20,
+    "QTY_UNUSUAL": 15,
+    "NEW_SUPPLIER": 10,
+}
+
+# Maximum points the diff_pct magnitude can add on top of flag weights.
+DIFF_PCT_MAX_POINTS = 20
+MAX_RISK_SCORE = 100
+
+
+def calculate_risk_score(
+    flag_codes: list[str],
+    diff_pct: float | None,
+) -> int:
+    """
+    Composite risk score (0–100) for a request item.
+
+    Base is the sum of per-flag weights; the |diff_pct| magnitude adds up to
+    DIFF_PCT_MAX_POINTS extra (capped).  The total is clamped to MAX_RISK_SCORE.
+
+    Pure — never touches the database.
+    """
+    score = sum(FLAG_RISK_WEIGHT.get(code, 0) for code in flag_codes)
+    if diff_pct is not None:
+        score += min(int(abs(diff_pct)), DIFF_PCT_MAX_POINTS)
+    return min(score, MAX_RISK_SCORE)
+
 
 def flag_price_above_ref(
     diff_pct: float | None,

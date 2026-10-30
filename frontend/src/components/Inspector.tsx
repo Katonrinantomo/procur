@@ -179,6 +179,37 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
             <StatusChip status={detail.status} />
           </div>
 
+          {/* Risk score */}
+          {(() => {
+            const score = detail.risk_score
+            const color = score >= 50
+              ? { fg: '#9A3412', bg: '#FDEBDD' }
+              : score >= 20
+                ? { fg: '#9A3412', bg: '#FFF4EC' }
+                : { fg: '#166534', bg: '#E7F4EC' }
+            return (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  alignSelf: 'flex-start',
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: color.bg,
+                  color: color.fg,
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                Risk Score:{' '}
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontVariantNumeric: 'tabular-nums' }}>
+                  {score}/100
+                </span>
+              </div>
+            )
+          })()}
+
           {/* Return note (when returned) */}
           {detail.status === 'returned' && detail.actions.length > 0 && (() => {
             const returnAction = [...detail.actions].reverse().find(a => a.action === 'return')

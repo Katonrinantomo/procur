@@ -18,6 +18,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.security import hash_password
+from app.services.flags import calculate_risk_score
 from app.models import (
     User,
     Action,
@@ -739,6 +740,9 @@ def _seed_past_requests(
                         f"{dp:+.1f}% above reference Rp {ref_price:,}"
                     ),
                 ))
+                ri.risk_score = calculate_risk_score(["PRICE_ABOVE_REF"], dp)
+            else:
+                ri.risk_score = calculate_risk_score([], dp)
 
 
 def _seed_today(
