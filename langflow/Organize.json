@@ -7,7 +7,7 @@
         "data": {
           "sourceHandle": {
             "dataType": "ChatInput",
-            "id": "ChatInput-Bxasf",
+            "id": "ChatInput-9OxTa",
             "name": "message",
             "output_types": [
               "Message"
@@ -15,19 +15,19 @@
           },
           "targetHandle": {
             "fieldName": "input_value",
-            "id": "LanguageModelComponent-FpiGI",
+            "id": "LanguageModelComponent-PfHN2",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__ChatInput-Bxasf{œdataTypeœ:œChatInputœ,œidœ:œChatInput-Bxasfœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-LanguageModelComponent-FpiGI{œfieldNameœ:œinput_valueœ,œidœ:œLanguageModelComponent-FpiGIœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "id": "reactflow__edge-ChatInput-9OxTa{œdataTypeœ:œChatInputœ,œidœ:œChatInput-9OxTaœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-LanguageModelComponent-PfHN2{œfieldNameœ:œinput_valueœ,œidœ:œLanguageModelComponent-PfHN2œ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
         "selected": false,
-        "source": "ChatInput-Bxasf",
-        "sourceHandle": "{œdataTypeœ:œChatInputœ,œidœ:œChatInput-Bxasfœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
-        "target": "LanguageModelComponent-FpiGI",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œLanguageModelComponent-FpiGIœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
+        "source": "ChatInput-9OxTa",
+        "sourceHandle": "{œdataTypeœ:œChatInputœ,œidœ:œChatInput-9OxTaœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "target": "LanguageModelComponent-PfHN2",
+        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œLanguageModelComponent-PfHN2œ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
       },
       {
         "animated": false,
@@ -35,7 +35,7 @@
         "data": {
           "sourceHandle": {
             "dataType": "LanguageModelComponent",
-            "id": "LanguageModelComponent-FpiGI",
+            "id": "LanguageModelComponent-PfHN2",
             "name": "text_output",
             "output_types": [
               "Message"
@@ -43,7 +43,7 @@
           },
           "targetHandle": {
             "fieldName": "input_value",
-            "id": "ChatOutput-gN5TW",
+            "id": "ChatOutput-4F8DU",
             "inputTypes": [
               "Data",
               "JSON",
@@ -54,18 +54,18 @@
             "type": "other"
           }
         },
-        "id": "xy-edge__LanguageModelComponent-FpiGI{œdataTypeœ:œLanguageModelComponentœ,œidœ:œLanguageModelComponent-FpiGIœ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}-ChatOutput-gN5TW{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-gN5TWœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-LanguageModelComponent-PfHN2{œdataTypeœ:œLanguageModelComponentœ,œidœ:œLanguageModelComponent-PfHN2œ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}-ChatOutput-4F8DU{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-4F8DUœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
         "selected": false,
-        "source": "LanguageModelComponent-FpiGI",
-        "sourceHandle": "{œdataTypeœ:œLanguageModelComponentœ,œidœ:œLanguageModelComponent-FpiGIœ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}",
-        "target": "ChatOutput-gN5TW",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-gN5TWœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
+        "source": "LanguageModelComponent-PfHN2",
+        "sourceHandle": "{œdataTypeœ:œLanguageModelComponentœ,œidœ:œLanguageModelComponent-PfHN2œ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}",
+        "target": "ChatOutput-4F8DU",
+        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-4F8DUœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
       }
     ],
     "nodes": [
       {
         "data": {
-          "id": "ChatInput-Bxasf",
+          "id": "ChatInput-9OxTa",
           "node": {
             "base_classes": [
               "Message"
@@ -352,11 +352,14 @@
           "showNode": false,
           "type": "ChatInput"
         },
-        "dragging": false,
-        "id": "ChatInput-Bxasf",
+        "id": "ChatInput-9OxTa",
+        "measured": {
+          "height": 52,
+          "width": 192
+        },
         "position": {
-          "x": 269,
-          "y": 280
+          "x": 1591,
+          "y": 553
         },
         "selected": false,
         "type": "genericNode"
@@ -364,7 +367,7 @@
       {
         "data": {
           "_connectionMode": false,
-          "id": "LanguageModelComponent-FpiGI",
+          "id": "LanguageModelComponent-PfHN2",
           "node": {
             "base_classes": [
               "LanguageModel",
@@ -393,7 +396,7 @@
             ],
             "frozen": false,
             "icon": "brain-circuit",
-            "last_updated": "2026-10-11T12:54:08.790Z",
+            "last_updated": "2026-10-30T00:50:40.729Z",
             "legacy": false,
             "lf_version": "1.12.2",
             "metadata": {
@@ -424,6 +427,7 @@
                 "cache": true,
                 "display_name": "Model Response",
                 "group_outputs": false,
+                "hidden": null,
                 "loop_types": null,
                 "method": "text_response",
                 "name": "text_output",
@@ -441,6 +445,7 @@
                 "cache": true,
                 "display_name": "Language Model",
                 "group_outputs": false,
+                "hidden": null,
                 "loop_types": null,
                 "method": "build_model",
                 "name": "model_output",
@@ -457,10 +462,10 @@
             "pinned": false,
             "template": {
               "_frontend_node_flow_id": {
-                "value": "ddb55ccf-026a-4d7c-86ea-dfc24d0acdbd"
+                "value": "0fe9f0de-43a9-4893-88d2-a737fc4b6864"
               },
               "_frontend_node_folder_id": {
-                "value": "b3d55405-aae5-495c-b547-2ac9b906bcf2"
+                "value": "f0ddc02b-2209-429e-9bb8-1c45a3d92057"
               },
               "_type": "Component",
               "api_key": {
@@ -469,7 +474,7 @@
                 "api_editable": false,
                 "display_name": "API Key",
                 "dynamic": false,
-                "info": "Falls back to ANTHROPIC_API_KEY environment variable",
+                "info": "Overrides global provider settings. Leave blank to use your pre-configured API Key.",
                 "input_types": [],
                 "load_from_db": false,
                 "name": "api_key",
@@ -617,91 +622,6 @@
                 "name": "model",
                 "options": [
                   {
-                    "category": "Anthropic",
-                    "icon": "Anthropic",
-                    "metadata": {
-                      "api_key_param": "api_key",
-                      "context_length": 128000,
-                      "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-haiku-5-5"
-                      ]
-                    },
-                    "name": "claude-haiku-5-5",
-                    "provider": "Anthropic"
-                  },
-                  {
-                    "category": "Anthropic",
-                    "icon": "Anthropic",
-                    "metadata": {
-                      "api_key_param": "api_key",
-                      "context_length": 128000,
-                      "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-sonnet-5-5"
-                      ]
-                    },
-                    "name": "claude-sonnet-5-5",
-                    "provider": "Anthropic"
-                  },
-                  {
-                    "category": "Anthropic",
-                    "icon": "Anthropic",
-                    "metadata": {
-                      "api_key_param": "api_key",
-                      "context_length": 128000,
-                      "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-sonnet-4-6"
-                      ]
-                    },
-                    "name": "claude-sonnet-4-6",
-                    "provider": "Anthropic"
-                  },
-                  {
-                    "category": "Anthropic",
-                    "icon": "Anthropic",
-                    "metadata": {
-                      "api_key_param": "api_key",
-                      "context_length": 128000,
-                      "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-haiku-4-5"
-                      ]
-                    },
-                    "name": "claude-haiku-4-5",
-                    "provider": "Anthropic"
-                  },
-                  {
-                    "category": "Anthropic",
-                    "icon": "Anthropic",
-                    "metadata": {
-                      "api_key_param": "api_key",
-                      "context_length": 128000,
-                      "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-sonnet-4-5"
-                      ]
-                    },
-                    "name": "claude-sonnet-4-5",
-                    "provider": "Anthropic"
-                  },
-                  {
                     "category": "Google Generative AI",
                     "icon": "GoogleGenerativeAI",
                     "metadata": {
@@ -712,10 +632,10 @@
                       "model_name_param": "model",
                       "reasoning": true,
                       "reasoning_models": [
-                        "gemma-4-31b-it"
+                        "gemini-4-argon"
                       ]
                     },
-                    "name": "gemma-4-31b-it",
+                    "name": "gemini-4-argon",
                     "provider": "Google Generative AI"
                   },
                   {
@@ -729,10 +649,10 @@
                       "model_name_param": "model",
                       "reasoning": true,
                       "reasoning_models": [
-                        "gemma-4-26b-a4b-it"
+                        "gemini-3.8-flash"
                       ]
                     },
-                    "name": "gemma-4-26b-a4b-it",
+                    "name": "gemini-3.8-flash",
                     "provider": "Google Generative AI"
                   },
                   {
@@ -746,10 +666,44 @@
                       "model_name_param": "model",
                       "reasoning": true,
                       "reasoning_models": [
-                        "gemini-2.5-pro"
+                        "gemini-flash-latest"
                       ]
                     },
-                    "name": "gemini-2.5-pro",
+                    "name": "gemini-flash-latest",
+                    "provider": "Google Generative AI"
+                  },
+                  {
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
+                    "metadata": {
+                      "api_key_param": "google_api_key",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_output_tokens",
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-3.7-flash"
+                      ]
+                    },
+                    "name": "gemini-3.7-flash",
+                    "provider": "Google Generative AI"
+                  },
+                  {
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
+                    "metadata": {
+                      "api_key_param": "google_api_key",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_output_tokens",
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-3.5-flash-lite"
+                      ]
+                    },
+                    "name": "gemini-3.5-flash-lite",
                     "provider": "Google Generative AI"
                   },
                   {
@@ -770,21 +724,88 @@
                     "provider": "Google Generative AI"
                   },
                   {
-                    "category": "Google Generative AI",
-                    "icon": "GoogleGenerativeAI",
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
                     "metadata": {
-                      "api_key_param": "google_api_key",
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
                       "context_length": 128000,
-                      "max_tokens_field_name": "max_output_tokens",
-                      "model_class": "ChatGoogleGenerativeAIFixed",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "gemini-2.5-flash-lite"
-                      ]
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
                     },
-                    "name": "gemini-2.5-flash-lite",
-                    "provider": "Google Generative AI"
+                    "name": "af/google/gemini-2.5-flash",
+                    "provider": "OpenAI Compatible"
+                  },
+                  {
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
+                    },
+                    "name": "ag/gemini-3.8-flash",
+                    "provider": "OpenAI Compatible"
+                  },
+                  {
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
+                    },
+                    "name": "bzl/mimo-v2.5",
+                    "provider": "OpenAI Compatible"
+                  },
+                  {
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
+                    },
+                    "name": "free-forever-v3",
+                    "provider": "OpenAI Compatible"
+                  },
+                  {
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
+                    },
+                    "name": "langflow",
+                    "provider": "OpenAI Compatible"
+                  },
+                  {
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "api_key_param": "api_key",
+                      "base_url_param": "base_url",
+                      "context_length": 128000,
+                      "max_tokens_field_name": "max_tokens",
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
+                    },
+                    "name": "langflow_maker_agent_cross_validation_harga",
+                    "provider": "OpenAI Compatible"
                   }
                 ],
                 "override_skip": false,
@@ -800,20 +821,17 @@
                 "type": "model",
                 "value": [
                   {
-                    "icon": "Anthropic",
+                    "icon": "Plug",
                     "metadata": {
                       "api_key_param": "api_key",
+                      "base_url_param": "base_url",
                       "context_length": 128000,
                       "max_tokens_field_name": "max_tokens",
-                      "model_class": "ChatAnthropic",
-                      "model_name_param": "model",
-                      "reasoning": true,
-                      "reasoning_models": [
-                        "claude-haiku-5-5"
-                      ]
+                      "model_class": "ChatOpenAI",
+                      "model_name_param": "model"
                     },
-                    "name": "claude-haiku-5-5",
-                    "provider": "Anthropic"
+                    "name": "langflow",
+                    "provider": "OpenAI Compatible"
                   }
                 ]
               },
@@ -955,7 +973,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "You turn purchase requests into line items for a manufacturing company in Indonesia. The text can be Indonesian or English, informal, with typos and abbreviations.  \n\nReply with JSON only. No explanation, no code fences. Shape: {\"items\": [{\"name\": \"...\", \"qty\": 1, \"unit\": \"pcs\", \"department\": null, \"quoted_unit_price_idr\": null, \"supplier\": null}]}  \n\nRules: \n- One object per distinct item. Keep specs in the name: size, grade, voltage, part number.\n- Write the name in clear English. Keep brand names and part numbers as written. \n- qty is a number. unit is one of: pcs, box, drum, doz, roll, pack, set, kg, liter, meter. \n- \"lusin\" means doz, \"dus\" means box. \n- Prices become an integer in rupiah per unit: \"1,45jt\" = 1450000, \"Rp 38.500\" = 38500, \"96rb\" = 96000. \n- department is one of: Warehouse, Maintenance, Production, Office, or null. \n- Never invent a quantity, price or supplier. If the text does not say it, use null.  \n\nExample input: gudang minta oli hidrolik 46 20L 4 drum, harga 1,45jt/drum dari CV Sinar Pelumas \n\nExample output: {\"items\": [{\"name\": \"Hydraulic oil ISO VG 46, 20L\", \"qty\": 4, \"unit\": \"drum\", \"department\": \"Warehouse\", \"quoted_unit_price_idr\": 1450000, \"supplier\": \"CV Sinar Pelumas\"}]}"
+                "value": "You turn purchase requests into line items for a manufacturing company in Indonesia. The text can be Indonesian or English, informal, with typos and abbreviations.  Reply with JSON only. No explanation, no code fences. Shape: {\"items\": [{\"name\": \"...\", \"qty\": 1, \"unit\": \"pcs\", \"department\": null, \"quoted_unit_price_idr\": null, \"supplier\": null}]}  Rules: - One object per distinct item. Keep specs in the name: size, grade, voltage, part number. - KEEP THE ITEM NAME IN THE ORIGINAL LANGUAGE (Indonesian) OR USE STANDARD INDONESIAN PROCUREMENT TERMS. Do NOT translate to English. Keep brand names and part numbers as written. (e.g., \"helm safety\", \"kabel LAN\", \"sarung tangan\"). - Fix typos and abbreviations to make it readable (e.g., \"hrga\" -> \"harga\", \"bnda\" -> \"benda\"), but do not change the core meaning. - qty is a number. unit is one of: pcs, box, drum, doz, roll, pack, set, kg, liter, meter, yard. - \"lusin\" means doz, \"dus\" means box, \"rim\" means pack. - Prices become an integer in rupiah per unit: \"1,45jt\" = 1450000, \"Rp 38.500\" = 38500, \"96rb\" = 96000. - department is one of: Warehouse, Maintenance, Production, Office, or null. - Never invent a quantity, price or supplier. If the text does not say it, use null.  Example input: gudang minta oli hidrolik 46 20L 4 drum, harga 1,45jt/drum dari CV Sinar Pelumas Example output: {\"items\": [{\"name\": \"Oli hidrolik ISO VG 46, 20L\", \"qty\": 4, \"unit\": \"drum\", \"department\": \"Warehouse\", \"quoted_unit_price_idr\": 1450000, \"supplier\": \"CV Sinar Pelumas\"}]}"
               },
               "temperature": {
                 "_input_type": "SliderInput",
@@ -997,18 +1015,21 @@
           "showNode": true,
           "type": "LanguageModelComponent"
         },
-        "dragging": false,
-        "id": "LanguageModelComponent-FpiGI",
-        "position": {
-          "x": 651,
-          "y": 138
+        "id": "LanguageModelComponent-PfHN2",
+        "measured": {
+          "height": 372,
+          "width": 320
         },
-        "selected": false,
+        "position": {
+          "x": 1973,
+          "y": 411
+        },
+        "selected": true,
         "type": "genericNode"
       },
       {
         "data": {
-          "id": "ChatOutput-gN5TW",
+          "id": "ChatOutput-4F8DU",
           "node": {
             "base_classes": [
               "Message"
@@ -1302,24 +1323,28 @@
           "showNode": false,
           "type": "ChatOutput"
         },
-        "id": "ChatOutput-gN5TW",
+        "id": "ChatOutput-4F8DU",
+        "measured": {
+          "height": 52,
+          "width": 192
+        },
         "position": {
-          "x": 1221,
-          "y": 279
+          "x": 2543,
+          "y": 552
         },
         "selected": false,
         "type": "genericNode"
       }
     ],
     "viewport": {
-      "x": -356.2237762237762,
-      "y": -3.9475524475524253,
-      "zoom": 1.3986013986013985
+      "x": -451.51015535810257,
+      "y": 166.00524198088124,
+      "zoom": 0.6289243961446153
     }
   },
-  "description": "",
+  "description": "Bridging Prompts for Brilliance.",
   "endpoint_name": null,
-  "id": "ddb55ccf-026a-4d7c-86ea-dfc24d0acdbd",
+  "id": "0fe9f0de-43a9-4893-88d2-a737fc4b6864",
   "is_component": false,
   "last_tested_version": "1.12.2",
   "locked": false,
