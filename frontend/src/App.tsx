@@ -10,6 +10,7 @@ import HistoryPage from './components/HistoryPage'
 import QuickCheckPage from './components/QuickCheckPage'
 import AuditLogPage from './components/AuditLogPage'
 import LoginPage from './components/LoginPage'
+import LandingPage from './components/LandingPage'
 import { useQueue } from './hooks/useQueue'
 import { useRequestItem } from './hooks/useRequestItem'
 import { useHash } from './hooks/useHash'
@@ -22,6 +23,12 @@ export default function App() {
   const [role] = useState<string | null>(
     () => localStorage.getItem('role')
   )
+
+  const [showLogin, setShowLogin] = useState(false)
+
+  if (!token && !showLogin) {
+    return <LandingPage onLoginClick={() => setShowLogin(true)} />
+  }
 
   if (!token) {
     return <LoginPage onLogin={() => window.location.reload()} />

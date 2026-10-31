@@ -25,7 +25,7 @@ Claude reads messy text and summarises web results. Every price, percentage, and
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
 | Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
-| Tests | pytest, 189 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
+| Tests | pytest, 232 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
 
 ### Key source files
 
@@ -186,7 +186,7 @@ All tests use an in-process SQLite database — no PostgreSQL or Langflow requir
 
 ```powershell
 cd backend
-pytest                        # run all 189 tests
+pytest                        # run all 232 tests
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
 ```
