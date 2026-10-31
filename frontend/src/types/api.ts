@@ -208,3 +208,74 @@ export interface AuditLogRow {
   note: string | null
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Vendor quotations (M18) — band, recommendation and score come from Python
+// ---------------------------------------------------------------------------
+
+export type PriceBand = 'KOMPETITIF' | 'WAJAR' | 'PERHATIAN' | 'TIDAK WAJAR' | 'UNKNOWN'
+export type Recommendation = 'SETUJU' | 'NEGOSIASI' | 'TOLAK'
+
+export interface QuoteEvidence {
+  title: string | null
+  url: string | null
+  seller: string | null
+  price_idr: number
+}
+
+export interface QuoteDropped {
+  title: string | null
+  url: string | null
+  price_idr: number
+  reason: string
+  reason_label: string
+}
+
+export interface QuotationLine {
+  line_no: number
+  name: string
+  qty: number | null
+  unit: string | null
+  unit_price_idr: number | null
+  line_total_idr: number | null
+  catalog_item_id: number | null
+  reference_unit_price_idr: number | null
+  reference_source: 'history' | 'web' | 'none'
+  history_count: number | null
+  diff_pct: number | null
+  band: PriceBand
+  recommendation: Recommendation | null
+  evidence: QuoteEvidence[]
+  dropped: QuoteDropped[]
+}
+
+export interface Quotation {
+  id: number
+  filename: string
+  status: 'pending' | 'checked' | 'unreadable' | 'queued'
+  check_error: string | null
+  vendor_name: string | null
+  quote_no: string | null
+  quote_date: string | null
+  quote_total_idr: number | null
+  vendor_score: number | null
+  price_points: number | null
+  arithmetic_ok: boolean | null
+  covered_lines: number
+  total_lines: number
+  dropped_count: number
+  dropped_summary: Record<string, number>
+  request_id: number | null
+  created_by_user_id: number | null
+  created_at: string
+  lines: QuotationLine[]
+}
+
+export interface QuotationSummary {
+  id: number
+  filename: string
+  status: Quotation['status']
+  vendor_name: string | null
+  vendor_score: number | null
+  created_at: string
+}

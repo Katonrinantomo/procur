@@ -10,11 +10,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request as StarletteRequest
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.models import Request, RequestItem, Supplier
+from app.models import Flag, Request, RequestItem, Supplier, WebQuote
 from app.routers.auth import CurrentUser, get_current_user, require_roles
 from app.schemas import QueueRow, RequestIn
 from app.security import limiter, RATE_LLM
@@ -118,15 +119,16 @@ def create_request(
     # Run the check engine (commits internally)
     check_request(req.id, db)
 
-    # Re-fetch the rows with their parent request for the response
-    from sqlalchemy import func, select
-    from app.models import Flag, WebQuote
+    return build_queue_rows(req.id, db)
 
+
+def build_queue_rows(request_id: int, db: Session) -> list[QueueRow]:
+    """Return the request's rows in the same format as the queue."""
     rows_with_req = (
         db.execute(
             select(RequestItem, Request)
             .join(Request, Request.id == RequestItem.request_id)
-            .where(RequestItem.request_id == req.id)
+            .where(RequestItem.request_id == request_id)
             .order_by(RequestItem.line_no)
         )
         .all()

@@ -8,6 +8,7 @@ import AddRequestsDialog from './components/AddRequestsDialog'
 import ImportPage from './components/ImportPage'
 import HistoryPage from './components/HistoryPage'
 import QuickCheckPage from './components/QuickCheckPage'
+import VendorQuotesPage from './components/VendorQuotesPage'
 import AuditLogPage from './components/AuditLogPage'
 import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
@@ -97,6 +98,7 @@ function AuthedApp() {
   const isImport = hash === '#import'
   const isHistory = hash === '#history'
   const isQuickCheck = hash === '#quick-check'
+  const isVendorQuotes = hash === '#vendor-quotes'
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -117,9 +119,10 @@ function AuthedApp() {
       {isImport && <ImportPage />}
       {isHistory && <HistoryPage />}
       {isQuickCheck && <QuickCheckPage />}
+      {isVendorQuotes && <VendorQuotesPage />}
       {isAudit && <AuditLogPage />}
 
-      {!isImport && !isHistory && !isQuickCheck && !isAudit && <main style={{
+      {!isImport && !isHistory && !isQuickCheck && !isVendorQuotes && !isAudit && <main style={{
         width: '100%',
         maxWidth: 1240,
         margin: '0 auto',

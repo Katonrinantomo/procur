@@ -1,7 +1,7 @@
 """Pydantic v2 response (and request) schemas for Procur.AI REST API."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -269,3 +269,72 @@ class QuickCheckResult(BaseModel):
     flags: list[FlagOut]
     status: str
     check_error: Optional[str]
+
+
+# ---------------------------------------------------------------------------
+# Vendor quotations (M18)
+# ---------------------------------------------------------------------------
+
+class QuoteEvidenceOut(BaseModel):
+    title: Optional[str]
+    url: Optional[str]
+    seller: Optional[str]
+    price_idr: int
+
+
+class QuoteDroppedOut(BaseModel):
+    title: Optional[str]
+    url: Optional[str]
+    price_idr: int
+    reason: str
+    reason_label: str
+
+
+class QuotationLineOut(BaseModel):
+    line_no: int
+    name: str
+    qty: Optional[int]
+    unit: Optional[str]
+    unit_price_idr: Optional[int]
+    line_total_idr: Optional[int]
+    catalog_item_id: Optional[int]
+    reference_unit_price_idr: Optional[int]
+    reference_source: str
+    history_count: Optional[int]
+    diff_pct: Optional[float]
+    band: str
+    recommendation: Optional[str]
+    evidence: list[QuoteEvidenceOut]
+    dropped: list[QuoteDroppedOut]
+
+
+class QuotationOut(BaseModel):
+    id: int
+    filename: str
+    status: str
+    check_error: Optional[str]
+    vendor_name: Optional[str]
+    quote_no: Optional[str]
+    quote_date: Optional[date]
+    quote_total_idr: Optional[int]
+    vendor_score: Optional[int]
+    price_points: Optional[float]
+    arithmetic_ok: Optional[bool]
+    covered_lines: int
+    total_lines: int
+    dropped_count: int
+    # reason label -> count, e.g. {"tidak ada di hasil pencarian": 2}
+    dropped_summary: dict[str, int]
+    request_id: Optional[int]
+    created_by_user_id: Optional[int]
+    created_at: datetime
+    lines: list[QuotationLineOut]
+
+
+class QuotationSummary(BaseModel):
+    id: int
+    filename: str
+    status: str
+    vendor_name: Optional[str]
+    vendor_score: Optional[int]
+    created_at: datetime

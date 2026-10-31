@@ -1,0 +1,15 @@
+MODE: QUOTE
+<document>
+CV SUMBER TEKNIK MANDIRI
+Jl. Raya Industri No. 12, Cikarang
+SURAT PENAWARAN HARGA   No: SPH/2026/10/118   Tgl: 30-10-2026
+
+No | Nama Barang                  | Qty | Sat  | Harga Satuan     | Jumlah
+1  | Bearing SKF 6205-ZZ          | 20  | pcs  | Rp 38.500,00     | Rp 770.000,00
+2  | Solenoid valve 24VDC 1/2"    | 2   | pcs  | 1,45jt           | 2.900.000
+3  | Lakban bening 48mm x 100y    | 3   | dus  | 210rb            | 630rb
+                                               Sub total          Rp 4.300.000
+                                               PPN 11%            Rp 473.000
+                                               TOTAL              Rp 4.773.000
+Harga berlaku 14 hari. Franco Cikarang.
+</document>

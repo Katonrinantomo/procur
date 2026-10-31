@@ -55,6 +55,20 @@ class Settings(BaseSettings):
     # web_check.py — reuse cached web quotes up to this many days old
     WEB_QUOTE_MAX_AGE_DAYS: int = 60
 
+    # pricing.py — a web reference needs at least this many kept quotes
+    WEB_MIN_QUOTES: int = 3
+
+    # pricing.py — price bands by diff_pct (%), each edge inclusive
+    PRICE_BAND_KOMPETITIF_PCT: float = -10.0
+    PRICE_BAND_WAJAR_PCT: float = 5.0
+    PRICE_BAND_PERHATIAN_PCT: float = 15.0
+
+    # pricing.py — TIDAK WAJAR above this diff_pct (%) is TOLAK, not NEGOSIASI
+    RECOMMEND_TOLAK_PCT: float = 30.0
+
+    # quotations — maximum upload size
+    QUOTATION_MAX_BYTES: int = 10 * 1024 * 1024
+
 
 settings = Settings()
 

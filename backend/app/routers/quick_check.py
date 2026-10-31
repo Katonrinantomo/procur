@@ -56,14 +56,9 @@ def quick_check(
                 "Set LANGFLOW_ORGANIZE_FLOW_ID in backend/.env."
             ),
         )
-    if not settings.LANGFLOW_WEBCHECK_FLOW_ID:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "The Web check flow isn't configured. "
-                "Set LANGFLOW_WEBCHECK_FLOW_ID in backend/.env."
-            ),
-        )
+    # No upfront maker_agent check: items with purchase history still check
+    # without it, and web_check reports a missing LANGFLOW_MAKER_FLOW_ID per
+    # row as status "pending" with check_error.
 
     try:
         drafts = asyncio.run(parse_text(body.text))

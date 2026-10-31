@@ -1,0 +1,6 @@
+MODE: ITEMS
+<document>
+1. bearing 6205 zz
+2. solenoid valve 24v dc 1/2 inch
+3. lakban bening 48mm
+</document>

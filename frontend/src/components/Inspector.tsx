@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import HistoryTable from './HistoryTable'
 import WebQuotesTable from './WebQuotesTable'
 import StatusChip from './StatusChip'
+import BandChip from './BandChip'
 import SupplierPanel from './SupplierPanel'
 import ReturnDialog from './ReturnDialog'
 import { formatRupiah, formatRupiahWithPrefix, formatPct } from '../lib/format'
@@ -145,28 +146,9 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
               <dt style={{ fontSize: 12, color: '#6B6B66' }}>At reference price</dt>
               <dd style={{ margin: '2px 0 0', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center' }}>
                 {detail.reference_total_idr != null ? formatRupiahWithPrefix(detail.reference_total_idr) : '—'}
-                {detail.price_status && detail.price_status !== 'UNKNOWN' && (() => {
-                  const styles = {
-                    'WAJAR': { bg: '#E7F4EC', text: '#166534' },
-                    'PERHATIAN': { bg: '#FFF4EC', text: '#9A3412' },
-                    'TIDAK WAJAR': { bg: '#FDEBDD', text: '#9A3412' },
-                  }
-                  const style = styles[detail.price_status as keyof typeof styles]
-                  return style ? (
-                    <span style={{
-                      marginLeft: 8,
-                      padding: '2px 6px',
-                      fontSize: 12,
-                      borderRadius: 4,
-                      background: style.bg,
-                      color: style.text,
-                      fontFamily: 'inherit',
-                      fontWeight: 500,
-                    }}>
-                      {detail.price_status}
-                    </span>
-                  ) : null
-                })()}
+                {detail.price_status !== 'UNKNOWN' && (
+                  <BandChip value={detail.price_status} style={{ marginLeft: 8 }} />
+                )}
               </dd>
             </div>
             <div>
@@ -180,28 +162,9 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
                 alignItems: 'center',
               }}>
                 {detail.over_reference_idr != null ? formatRupiahWithPrefix(detail.over_reference_idr) : '—'}
-                {detail.price_status && detail.price_status !== 'UNKNOWN' && (() => {
-                  const styles = {
-                    'WAJAR': { bg: '#E7F4EC', text: '#166534' },
-                    'PERHATIAN': { bg: '#FFF4EC', text: '#9A3412' },
-                    'TIDAK WAJAR': { bg: '#FDEBDD', text: '#9A3412' },
-                  }
-                  const style = styles[detail.price_status as keyof typeof styles]
-                  return style ? (
-                    <span style={{
-                      marginLeft: 8,
-                      padding: '2px 6px',
-                      fontSize: 12,
-                      borderRadius: 4,
-                      background: style.bg,
-                      color: style.text,
-                      fontFamily: 'inherit',
-                      fontWeight: 500,
-                    }}>
-                      {detail.price_status}
-                    </span>
-                  ) : null
-                })()}
+                {detail.price_status !== 'UNKNOWN' && (
+                  <BandChip value={detail.price_status} style={{ marginLeft: 8 }} />
+                )}
               </dd>
             </div>
             <div>

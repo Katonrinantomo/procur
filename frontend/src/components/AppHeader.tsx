@@ -52,6 +52,7 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, usernam
     if (h === '#history') return 'History'
     if (h === '#import') return 'Import'
     if (h === '#quick-check') return 'Quick check'
+    if (h === '#vendor-quotes') return 'Vendor quotes'
     if (h === '#audit') return 'Audit Log'
     return 'Today'
   }

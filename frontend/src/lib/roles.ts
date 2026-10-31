@@ -5,18 +5,19 @@
 
 export type Role = 'purchasing' | 'owner' | 'finance'
 
-export type NavTab = 'Today' | 'Quick check' | 'History' | 'Import' | 'Audit Log'
+export type NavTab = 'Today' | 'Quick check' | 'Vendor quotes' | 'History' | 'Import' | 'Audit Log'
 
 const TAB_HASH: Record<NavTab, string> = {
   'Today': '#today',
   'Quick check': '#quick-check',
+  'Vendor quotes': '#vendor-quotes',
   'History': '#history',
   'Import': '#import',
   'Audit Log': '#audit',
 }
 
 const TABS_BY_ROLE: Record<Role, NavTab[]> = {
-  purchasing: ['Today', 'Quick check', 'History', 'Import'],
+  purchasing: ['Today', 'Quick check', 'Vendor quotes', 'History', 'Import'],
   owner: ['Today', 'History', 'Audit Log'],
   finance: ['Today', 'History', 'Audit Log'],
 }

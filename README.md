@@ -10,7 +10,7 @@ Procurement price-check web app for a manufacturing demo. Purchasing pastes the 
 Browser  ──►  Backend (FastAPI)  ──►  PostgreSQL
                      │
                      ├──►  Langflow Flow 1: Organize   ──►  Claude Haiku 5.5
-                     └──►  Langflow Flow 2: Web Check  ──►  Claude Haiku 5.5
+                     └──►  Langflow maker_agent        ──►  Claude Haiku 5.5
 ```
 
 **Key rule: the model handles language; the backend handles numbers.**
@@ -25,7 +25,7 @@ Claude reads messy text and summarises web results. Every price, percentage, and
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
 | Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
-| Tests | pytest, 265 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
+| Tests | pytest, 385 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
 
 ### Key source files
 
@@ -82,7 +82,7 @@ LANGFLOW_URL=http://localhost:7860
 LANGFLOW_API_KEY=          ← fill in after step 4
 LANGFLOW_ORGANIZE_FLOW_ID= ← fill in after step 4
 LANGFLOW_WEBCHECK_FLOW_ID= ← fill in after step 4
-LANGFLOW_MAKER_FLOW_ID=    ← optional until M18 (maker_agent)
+LANGFLOW_MAKER_FLOW_ID=    ← maker_agent: web prices + vendor quotes
 LANGFLOW_CHECKER_FLOW_ID=  ← optional until M21 (checker_agent)
 LANGFLOW_NARRATOR_FLOW_ID= ← optional until M24 (risk_narrator)
 ```
@@ -193,7 +193,7 @@ All tests use an in-process SQLite database — no PostgreSQL or Langflow requir
 
 ```powershell
 cd backend
-pytest                        # run all 265 tests
+pytest                        # run all 385 tests
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
 pytest -m live                # live flow check against the real Langflow (skipped by default)

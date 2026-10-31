@@ -1,7 +1,7 @@
 """SQLAlchemy 2 ORM models for Procur.AI."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -259,3 +260,72 @@ class AuditLog(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="audit_logs")
+
+
+# ---------------------------------------------------------------------------
+# quotations (M18) — a vendor quotation checked by maker_agent + pricing.py
+# ---------------------------------------------------------------------------
+class Quotation(Base):
+    __tablename__ = "quotations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    vendor_name: Mapped[str | None] = mapped_column(String(255))
+    quote_no: Mapped[str | None] = mapped_column(String(100))
+    quote_date: Mapped[date | None] = mapped_column(Date)
+    quote_total_idr: Mapped[int | None] = mapped_column(BIGINT)
+    # status: pending | checked | unreadable | queued
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    check_error: Mapped[str | None] = mapped_column(Text)
+    # Computed by pricing.vendor_score — never by the model.
+    vendor_score: Mapped[int | None] = mapped_column(Integer)
+    price_points: Mapped[float | None] = mapped_column(Numeric(5, 1))
+    arithmetic_ok: Mapped[bool | None] = mapped_column(Boolean)
+    covered_lines: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_lines: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    dropped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Set by POST /api/quotations/{id}/to-queue
+    request_id: Mapped[int | None] = mapped_column(ForeignKey("requests.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    lines: Mapped[list[QuotationLine]] = relationship(
+        back_populates="quotation", order_by="QuotationLine.line_no", cascade="all, delete-orphan"
+    )
+
+
+class QuotationLine(Base):
+    __tablename__ = "quotation_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    quotation_id: Mapped[int] = mapped_column(
+        ForeignKey("quotations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    line_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    qty: Mapped[int | None] = mapped_column(Integer)
+    unit: Mapped[str | None] = mapped_column(String(50))
+    unit_price_idr: Mapped[int | None] = mapped_column(BIGINT)
+    line_total_idr: Mapped[int | None] = mapped_column(BIGINT)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"), nullable=True)
+    reference_unit_price_idr: Mapped[int | None] = mapped_column(BIGINT)
+    # reference_source: history | web | none
+    reference_source: Mapped[str] = mapped_column(String(20), nullable=False, default="none")
+    history_count: Mapped[int | None] = mapped_column(Integer)
+    diff_pct: Mapped[float | None] = mapped_column(Numeric(8, 1))
+    # band: KOMPETITIF | WAJAR | PERHATIAN | TIDAK WAJAR | UNKNOWN
+    band: Mapped[str] = mapped_column(String(20), nullable=False, default="UNKNOWN")
+    # recommendation: SETUJU | NEGOSIASI | TOLAK | None
+    recommendation: Mapped[str | None] = mapped_column(String(20))
+    search_query: Mapped[str | None] = mapped_column(String(500))
+    # Kept listings: [{title, url, seller, price_idr}]
+    evidence: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
+    # Dropped listings: [{title, url, price_idr, reason}]
+    dropped: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
+
+    quotation: Mapped[Quotation] = relationship(back_populates="lines")

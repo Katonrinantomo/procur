@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import FLOW_ID_SETTINGS, settings, validate_settings
-from app.routers import audit_logs, auth, health, imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
+from app.routers import audit_logs, auth, health, imports, items, purchases, queue, quick_check, quotations, request_items, request_items_list, requests
 from app.security import limiter
 from app.services import langflow_client
 
@@ -85,6 +85,7 @@ app.include_router(requests.router)
 app.include_router(items.router)
 app.include_router(imports.router)
 app.include_router(quick_check.router)
+app.include_router(quotations.router)
 app.include_router(health.router)
 
 
@@ -92,7 +93,7 @@ def _langflow_configured() -> bool:
     return bool(
         settings.LANGFLOW_API_KEY
         and settings.LANGFLOW_ORGANIZE_FLOW_ID
-        and settings.LANGFLOW_WEBCHECK_FLOW_ID
+        and settings.LANGFLOW_MAKER_FLOW_ID
     )
 
 

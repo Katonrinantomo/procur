@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from statistics import median
 from typing import TypedDict
 
 from sqlalchemy import select
@@ -92,11 +91,9 @@ def _do_check(row: RequestItem, session: Session) -> None:  # noqa: C901
             row.check_error = web_error
             session.flush()
             return
-        if web_quotes_used:
-            prices = [wq.price_idr for wq in web_quotes_used if wq.price_idr > 0]
-            if prices:
-                ref_price = round(median(prices))
-                checked_via = "web"
+        ref_price = pricing.reference_from_quotes([wq.price_idr for wq in web_quotes_used])
+        if ref_price is not None:
+            checked_via = "web"
         # Link the quotes we used to this (already persisted) row
         link_quotes_to_row(web_quotes_used, row.id, session)
 
@@ -277,11 +274,9 @@ def dry_check_item(draft: DryCheckDraft, session: Session) -> dict:  # noqa: C90
             result["status"] = "pending"
             result["check_error"] = web_error
             return result
-        if web_quotes_used:
-            prices = [wq.price_idr for wq in web_quotes_used if wq.price_idr > 0]
-            if prices:
-                ref_price = round(median(prices))
-                checked_via = "web"
+        ref_price = pricing.reference_from_quotes([wq.price_idr for wq in web_quotes_used])
+        if ref_price is not None:
+            checked_via = "web"
 
     result["reference_unit_price_idr"] = ref_price
     result["checked_via"] = checked_via
