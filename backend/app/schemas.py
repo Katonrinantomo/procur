@@ -191,11 +191,10 @@ class SuppliersResponse(BaseModel):
 
 class ReturnIn(BaseModel):
     note: str
-    actor: Optional[str] = None
 
 
 class ApproveIn(BaseModel):
-    actor: Optional[str] = None
+    """Empty body; the actor is taken from the JWT, never from the browser."""
 
 
 # ---------------------------------------------------------------------------

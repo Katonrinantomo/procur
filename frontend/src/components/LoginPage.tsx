@@ -1,18 +1,26 @@
 /**
  * LoginPage — simple username/password form that POSTs to the backend
- * auth endpoint and stores the JWT + role in localStorage.
+ * auth endpoint and stores the JWT, role, and username in localStorage.
  */
 import { useState } from 'react'
 import { fetchWithAuth } from '../lib/api'
 
 interface LoginPageProps {
-  onLogin: () => void
+  onLogin: (role: string) => void
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() => {
+    // Show session-expired message if redirected here by fetchWithAuth
+    const msg = sessionStorage.getItem('auth_message')
+    if (msg) {
+      sessionStorage.removeItem('auth_message')
+      return msg
+    }
+    return null
+  })
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,16 +35,20 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         body: JSON.stringify({ username, password }),
       })
 
+      if (res.status === 429) {
+        setError('Terlalu banyak percobaan. Coba lagi dalam satu menit.')
+        return
+      }
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError((data as { detail?: string }).detail ?? 'Login failed')
+        setError('Username atau password salah')
         return
       }
 
-      const data = await res.json() as { access_token: string; role: string }
+      const data = await res.json() as { access_token: string; role: string; username: string }
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('role', data.role)
-      onLogin()
+      localStorage.setItem('username', data.username)
+      onLogin(data.role)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error')
     } finally {
@@ -130,7 +142,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </form>
 
         <p style={{ margin: 0, fontSize: 12, color: '#9E9E99', textAlign: 'center' }}>
-          Demo credentials: purchasing / owner / finance · password123
+          Demo users: purchasing / owner / finance
         </p>
       </div>
     </div>

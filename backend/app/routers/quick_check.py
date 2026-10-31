@@ -17,20 +17,25 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.models import Supplier
+from app.routers.auth import get_current_user, require_roles
 from app.schemas import QuickCheckResult
 from app.security import limiter, RATE_LLM
 from app.services.checker import DryCheckDraft, dry_check_item
 from app.services.langflow_client import LangflowError
 from app.services.organizer import parse_text
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 class QuickCheckIn(BaseModel):
     text: str = Field(..., max_length=5_000)
 
 
-@router.post("/api/quick-check", response_model=list[QuickCheckResult])
+@router.post(
+    "/api/quick-check",
+    response_model=list[QuickCheckResult],
+    dependencies=[Depends(require_roles("purchasing"))],
+)
 @limiter.limit(RATE_LLM)
 def quick_check(
     request: Request,

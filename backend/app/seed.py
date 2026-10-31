@@ -395,10 +395,12 @@ def seed(empty_today: bool = False) -> None:
         
         # Seed default users (Maker-Checker)
         if not session.query(User).first():
+            from app.config import settings as _settings
+            demo_pwd = _settings.DEMO_PASSWORD or "password123"
             session.add_all([
-                User(username="purchasing", hashed_password=hash_password("password123"), role="purchasing"),
-                User(username="owner", hashed_password=hash_password("password123"), role="owner"),
-                User(username="finance", hashed_password=hash_password("password123"), role="finance"),
+                User(username="purchasing", hashed_password=hash_password(demo_pwd), role="purchasing"),
+                User(username="owner", hashed_password=hash_password(demo_pwd), role="owner"),
+                User(username="finance", hashed_password=hash_password(demo_pwd), role="finance"),
             ])
             session.flush()
 
@@ -410,6 +412,11 @@ def seed(empty_today: bool = False) -> None:
         _seed_past_requests(session, suppliers, items)
         if not empty_today:
             _seed_today(session, suppliers, items)
+        # Backfill: every seeded request was entered by the purchasing user.
+        purchasing_user = session.execute(
+            sa_select(User).where(User.username == "purchasing")
+        ).scalar_one()
+        session.query(Req).update({Req.created_by_user_id: purchasing_user.id})
         session.commit()
 
         if not empty_today:
@@ -428,12 +435,12 @@ def _wipe(session) -> None:
     """Drop all rows in dependency order."""
     for tbl in [
         "audit_log",
-        "users",
         "actions",
         "flags",
         "web_quotes",
         "request_items",
         "requests",
+        "users",
         "stock",
         "purchases",
         "items",

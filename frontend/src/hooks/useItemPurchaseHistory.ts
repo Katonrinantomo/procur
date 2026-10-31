@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ItemPurchaseHistory } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 async function fetchItemPurchaseHistory(itemId: number): Promise<ItemPurchaseHistory> {
-  const res = await fetch(`/api/purchases/item/${itemId}`)
+  const res = await fetchWithAuth(`/api/purchases/item/${itemId}`)
   if (!res.ok) throw new Error(`Item history fetch failed: ${res.status}`)
   return res.json() as Promise<ItemPurchaseHistory>
 }

@@ -15,13 +15,16 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.models import Request, RequestItem, Supplier
+from app.routers.auth import CurrentUser, get_current_user, require_roles
 from app.schemas import QueueRow, RequestIn
 from app.security import limiter, RATE_LLM
 from app.services.checker import check_request
 from app.services.langflow_client import LangflowError
 from app.services.organizer import LineItemDraft, parse_text
 
-router = APIRouter()
+# purchasing: parse and add requests; owner may also add
+_ENTRY_ROLES = ("purchasing", "owner")
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 JAKARTA = timezone(timedelta(hours=7))
 
@@ -35,7 +38,11 @@ class ParseIn(BaseModel):
     requested_by: Optional[str] = None
 
 
-@router.post("/api/requests/parse", response_model=list[LineItemDraft])
+@router.post(
+    "/api/requests/parse",
+    response_model=list[LineItemDraft],
+    dependencies=[Depends(require_roles(*_ENTRY_ROLES))],
+)
 @limiter.limit(RATE_LLM)
 async def parse_request(request: StarletteRequest, body: ParseIn):
     """
@@ -59,10 +66,15 @@ async def parse_request(request: StarletteRequest, body: ParseIn):
 
 
 @router.post("/api/requests", response_model=list[QueueRow], status_code=201)
-def create_request(body: RequestIn, db: Session = Depends(get_db)):
+def create_request(
+    body: RequestIn,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_roles(*_ENTRY_ROLES)),
+):
     """
     Save a new request and all its line items, run the check engine on each,
     then return the resulting rows in the same format as the queue.
+    Sets created_by_user_id from the JWT token.
     """
     now_jkt = datetime.now(tz=JAKARTA)
 
@@ -70,6 +82,7 @@ def create_request(body: RequestIn, db: Session = Depends(get_db)):
         requested_at=body.requested_at or now_jkt,
         requested_by=body.requested_by,
         raw_text=body.raw_text,
+        created_by_user_id=current_user.id,
     )
     db.add(req)
     db.flush()

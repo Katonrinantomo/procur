@@ -12,12 +12,19 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
 os.environ.setdefault("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 
 client = TestClient(app)
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 
 class TestInputLengthValidation:
@@ -28,6 +35,7 @@ class TestInputLengthValidation:
         resp = client.post(
             "/api/requests/parse",
             json={"text": "a" * 10_001},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 422
 
@@ -37,6 +45,7 @@ class TestInputLengthValidation:
         resp = client.post(
             "/api/requests/parse",
             json={"text": "a" * 10_000},
+            headers=_auth_headers(),
         )
         assert resp.status_code != 422
 
@@ -45,6 +54,7 @@ class TestInputLengthValidation:
         resp = client.post(
             "/api/quick-check",
             json={"text": "x" * 5_001},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 422
 
@@ -53,6 +63,7 @@ class TestInputLengthValidation:
         resp = client.post(
             "/api/quick-check",
             json={"text": "x" * 5_000},
+            headers=_auth_headers(),
         )
         assert resp.status_code != 422
 
@@ -61,6 +72,7 @@ class TestInputLengthValidation:
         resp = client.post(
             "/api/requests/parse",
             json={"text": ""},
+            headers=_auth_headers(),
         )
         # Either 422 (min_length constraint) or 502 (Langflow not configured) is fine;
         # the important thing is it's not a 500.

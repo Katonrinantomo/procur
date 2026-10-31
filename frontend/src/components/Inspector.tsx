@@ -8,6 +8,7 @@ import ReturnDialog from './ReturnDialog'
 import { formatRupiah, formatRupiahWithPrefix, formatPct } from '../lib/format'
 import { useApprove, useReturn } from '../hooks/useItemActions'
 import { fetchWithAuth } from '../lib/api'
+import { canRecheck as roleCanRecheck } from '../lib/roles'
 import type { RequestItemDetail } from '../types/api'
 
 interface InspectorProps {
@@ -60,7 +61,8 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
 
   const isNewItem = detail.catalog_item_id === null
   const canAct = detail.status !== 'approved' && detail.status !== 'returned'
-  const canRecheck = detail.status === 'approved' || detail.status === 'returned'
+  const canRecheck = (detail.status === 'approved' || detail.status === 'returned') && roleCanRecheck(role)
+  const actionError = approveMutation.error ?? returnMutation.error
 
   function handleApprove() {
     if (!canAct) return
@@ -360,6 +362,9 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
               >
                 {rechecking ? 'Rechecking…' : 'Recheck'}
               </button>
+            )}
+            {actionError && (
+              <span style={{ fontSize: 13, color: '#9A3412' }}>{actionError.message}</span>
             )}
           </div>
         </div>

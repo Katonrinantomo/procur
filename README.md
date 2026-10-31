@@ -25,7 +25,7 @@ Claude reads messy text and summarises web results. Every price, percentage, and
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
 | Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
-| Tests | pytest, 232 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
+| Tests | pytest, 265 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
 
 ### Key source files
 
@@ -72,10 +72,12 @@ cd backend
 Copy-Item .env.example .env
 ```
 
-Open `backend\.env` and fill in the Langflow values — you will get them in step 4.
+Open `backend\.env`, set `JWT_SECRET` (required, at least 32 characters — the API refuses to start without it) and `DEMO_PASSWORD`, then fill in the Langflow values — you will get them in step 4.
 
 ```
 DATABASE_URL=postgresql+psycopg2://procur:procur@localhost:5432/procur
+JWT_SECRET=                ← python -c "import secrets; print(secrets.token_hex(32))"
+DEMO_PASSWORD=             ← password for the seeded purchasing / owner / finance users
 LANGFLOW_URL=http://localhost:7860
 LANGFLOW_API_KEY=          ← fill in after step 4
 LANGFLOW_ORGANIZE_FLOW_ID= ← fill in after step 4
@@ -95,7 +97,7 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
-Seed demo data (purchase history + stock levels + today's 5-row flagged request):
+Seed demo data (purchase history + stock levels + today's 5-row flagged request, plus the `purchasing`, `owner` and `finance` users, all with `DEMO_PASSWORD`). Re-seed after upgrading from a build before M16: old password hashes no longer verify.
 
 ```powershell
 python -m app.seed --reset
@@ -186,7 +188,7 @@ All tests use an in-process SQLite database — no PostgreSQL or Langflow requir
 
 ```powershell
 cd backend
-pytest                        # run all 232 tests
+pytest                        # run all 265 tests
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
 ```

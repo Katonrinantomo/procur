@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { canAddRequests, tabToHash, tabsFor, type NavTab } from '../lib/roles'
 
 interface AppHeaderProps {
   onAddRequests?: () => void
   addRequestsRef?: React.Ref<HTMLButtonElement>
   role?: string | null
+  username?: string | null
   hash?: string
 }
 
@@ -38,16 +40,7 @@ function useAiStatus(): AiStatus {
   return status
 }
 
-const NAV_TABS = ['Today', 'Quick check', 'History', 'Import', 'Audit Log'] as const
-type NavTab = typeof NAV_TABS[number]
-
-function tabToHash(tab: NavTab): string {
-  if (tab === 'Quick check') return '#quick-check'
-  if (tab === 'Audit Log') return '#audit'
-  return '#' + tab.toLowerCase()
-}
-
-export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }: AppHeaderProps) {
+export default function AppHeader({ onAddRequests, addRequestsRef, role, username, hash }: AppHeaderProps) {
   const aiStatus = useAiStatus()
 
   function handleTabClick(tab: NavTab) {
@@ -64,7 +57,6 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
   }
 
   const active = activeTab()
-  const showAuditLog = role === 'owner' || role === 'finance'
 
   return (
     <header style={{
@@ -94,7 +86,7 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
           )}
         </div>
         <nav aria-label="Main" style={{ display: 'flex', gap: 4, fontSize: 14 }}>
-          {NAV_TABS.filter((tab) => tab !== 'Audit Log' || showAuditLog).map((tab) => (
+          {tabsFor(role).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -116,9 +108,11 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
         </nav>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {role && (
+        {(username || role) && (
           <span style={{ fontSize: 12, color: '#4A4A46' }}>
-            Logged in as: <span style={{ fontWeight: 500, color: '#1A1A1A' }}>{role}</span>
+            {username && <span style={{ fontWeight: 500, color: '#1A1A1A' }}>{username}</span>}
+            {username && role && <span style={{ color: '#9E9E99' }}> · </span>}
+            {role && <span style={{ color: '#6B6B66' }}>{role}</span>}
           </span>
         )}
         <button
@@ -126,6 +120,7 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
           onClick={() => {
             localStorage.removeItem('token')
             localStorage.removeItem('role')
+            localStorage.removeItem('username')
             window.location.reload()
           }}
           style={{
@@ -142,7 +137,7 @@ export default function AppHeader({ onAddRequests, addRequestsRef, role, hash }:
         >
           Logout
         </button>
-        {role !== 'finance' && (
+        {canAddRequests(role) && (
           <button
             ref={addRequestsRef}
             type="button"

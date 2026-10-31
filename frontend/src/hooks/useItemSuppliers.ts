@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { SuppliersResponse } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 async function fetchItemSuppliers(itemId: number): Promise<SuppliersResponse> {
-  const res = await fetch(`/api/items/${itemId}/suppliers`)
+  const res = await fetchWithAuth(`/api/items/${itemId}/suppliers`)
   if (!res.ok) throw new Error(`Suppliers fetch failed: ${res.status}`)
   return res.json() as Promise<SuppliersResponse>
 }

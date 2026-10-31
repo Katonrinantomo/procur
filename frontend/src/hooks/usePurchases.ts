@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PurchasesResponse } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 interface PurchasesParams {
   search: string
@@ -17,7 +18,7 @@ async function fetchPurchases(params: PurchasesParams): Promise<PurchasesRespons
   if (params.dateTo) qs.set('date_to', params.dateTo)
   qs.set('page', String(params.page))
 
-  const res = await fetch(`/api/purchases?${qs.toString()}`)
+  const res = await fetchWithAuth(`/api/purchases?${qs.toString()}`)
   if (!res.ok) throw new Error(`Purchases fetch failed: ${res.status}`)
   return res.json() as Promise<PurchasesResponse>
 }

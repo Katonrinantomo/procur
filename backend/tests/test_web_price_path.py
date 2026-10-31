@@ -19,14 +19,21 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 from app.services.checker import DryCheckDraft, dry_check_item  # noqa: E402
 from app.services.langflow_client import LangflowError  # noqa: E402
 
 client = TestClient(app)
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -158,18 +165,18 @@ class TestSolenoidViaPostRequests:
     }
 
     def test_reference_price_is_median(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         assert resp.status_code == 201
         row = resp.json()[0]
         assert row["reference_unit_price_idr"] == 425_000
 
     def test_checked_via_web(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row = resp.json()[0]
         assert row["checked_via"] == "web"
 
     def test_web_quote_count_three(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row = resp.json()[0]
         # The three seeded quotes (or their clones) should be linked to this row
         assert row["web_quote_count"] >= 3
@@ -224,6 +231,7 @@ class TestQuickCheckM1:
             resp = client.post(
                 "/api/quick-check",
                 json={"text": "solenoid valve 2 pcs"},
+                headers=_auth_headers(),
             )
 
         assert resp.status_code == 502
@@ -241,6 +249,7 @@ class TestQuickCheckM1:
             resp = client.post(
                 "/api/quick-check",
                 json={"text": "solenoid valve 2 pcs"},
+                headers=_auth_headers(),
             )
 
         assert resp.status_code == 502

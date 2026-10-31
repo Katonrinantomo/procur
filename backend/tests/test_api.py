@@ -19,12 +19,14 @@ import pytest
 
 # Ensure the test DB URL is set before importing the app.
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 from app.main import app  # noqa: E402
 from app.models import RequestItem  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 
 JAKARTA = timezone(timedelta(hours=7))
 
@@ -33,6 +35,12 @@ client = TestClient(app)
 
 def _today_jakarta() -> str:
     return datetime.now(tz=JAKARTA).date().isoformat()
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    """Return Authorization headers with a valid JWT for the given role."""
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -47,16 +55,16 @@ class TestQueueOrder:
     """
 
     def test_queue_returns_200(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_queue_has_five_rows(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}", headers=_auth_headers())
         data = resp.json()
         assert len(data["rows"]) == 5
 
     def test_queue_sort_order(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}", headers=_auth_headers())
         rows = resp.json()["rows"]
         statuses = [r["status"] for r in rows]
         # First must be flagged, last three checked
@@ -67,21 +75,21 @@ class TestQueueOrder:
         assert statuses[4] == "checked"
 
     def test_queue_line_no_order_within_group(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}", headers=_auth_headers())
         rows = resp.json()["rows"]
         checked_rows = [r for r in rows if r["status"] == "checked"]
         line_nos = [r["line_no"] for r in checked_rows]
         assert line_nos == sorted(line_nos)
 
     def test_queue_counts(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}", headers=_auth_headers())
         counts = resp.json()["counts"]
         assert counts["flagged"] == 1
         assert counts["new"] == 1
         assert counts["checked"] == 3
 
     def test_queue_status_filter(self, seeded_db):
-        resp = client.get(f"/api/queue?date={_today_jakarta()}&status=checked")
+        resp = client.get(f"/api/queue?date={_today_jakarta()}&status=checked", headers=_auth_headers())
         rows = resp.json()["rows"]
         assert len(rows) == 3
         for r in rows:
@@ -89,7 +97,7 @@ class TestQueueOrder:
 
     def test_queue_default_date_is_today(self, seeded_db):
         """Calling /api/queue without a date must return today's 5 rows."""
-        resp = client.get("/api/queue")
+        resp = client.get("/api/queue", headers=_auth_headers())
         assert resp.status_code == 200
         assert len(resp.json()["rows"]) == 5
 
@@ -134,34 +142,34 @@ class TestOilDetail:
 
     def test_oil_detail_returns_200(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        resp = client.get(f"/api/request-items/{oil_id}")
+        resp = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_oil_quoted_total(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         assert data["quoted_total_idr"] == 5_800_000
 
     def test_oil_reference_total(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         assert data["reference_total_idr"] == 4_480_000
 
     def test_oil_over_reference(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         assert data["over_reference_idr"] == 1_320_000
 
     def test_oil_has_flags(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         codes = {f["code"] for f in data["flags"]}
         assert "PRICE_ABOVE_REF" in codes
         assert "STOCK_COVER_HIGH" in codes
 
     def test_oil_has_last_purchases(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         # History path → last_purchases present, web_quotes absent
         assert data["last_purchases"] is not None
         assert len(data["last_purchases"]) >= 3
@@ -169,7 +177,7 @@ class TestOilDetail:
 
     def test_oil_last_purchases_sorted_newest_first(self, seeded_db):
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         dates = [p["purchase_date"] for p in data["last_purchases"]]
         assert dates == sorted(dates, reverse=True)
 
@@ -206,36 +214,36 @@ class TestQuickCheckAddToQueue:
     }
 
     def test_add_quick_check_item_returns_201(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         assert resp.status_code == 201
 
     def test_add_quick_check_item_returns_one_row(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         rows = resp.json()
         assert isinstance(rows, list)
         assert len(rows) == 1
 
     def test_add_quick_check_item_requested_by(self, seeded_db):
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row = resp.json()[0]
         assert row["requested_by"] == "Quick check"
 
     def test_add_quick_check_item_has_history_count(self, seeded_db):
         """history_count must be present in the response (was the source of the 500)."""
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row = resp.json()[0]
         assert "history_count" in row
 
     def test_add_quick_check_item_has_web_quote_count(self, seeded_db):
         """web_quote_count must be present in the response (was the source of the 500)."""
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row = resp.json()[0]
         assert "web_quote_count" in row
 
     def test_add_quick_check_item_persisted(self, seeded_db):
         """The new RequestItem must exist in the database after the call."""
         from app import db as db_module
-        resp = client.post("/api/requests", json=self._PAYLOAD)
+        resp = client.post("/api/requests", json=self._PAYLOAD, headers=_auth_headers("purchasing", 1))
         row_id = resp.json()[0]["id"]
         sess = db_module.SessionLocal()
         try:
@@ -314,7 +322,7 @@ class TestCheckErrorSanitization:
         response must not contain path separators or 'Traceback'.
         """
         oil_id = self._get_oil_id(seeded_db)
-        data = client.get(f"/api/request-items/{oil_id}").json()
+        data = client.get(f"/api/request-items/{oil_id}", headers=_auth_headers()).json()
         ce = data.get("check_error") or ""
         assert "Traceback" not in ce
         assert "/home" not in ce

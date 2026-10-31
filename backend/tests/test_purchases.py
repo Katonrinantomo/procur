@@ -11,12 +11,14 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 from app.main import app  # noqa: E402
 from app.models import Item, Purchase, Supplier  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 
 JAKARTA = timezone(timedelta(hours=7))
 
@@ -27,27 +29,32 @@ def _today_jakarta() -> date:
     return datetime.now(tz=JAKARTA).date()
 
 
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
+
+
 # ---------------------------------------------------------------------------
 # GET /api/suppliers
 # ---------------------------------------------------------------------------
 
 class TestListSuppliers:
     def test_returns_200(self, seeded_db):
-        resp = client.get("/api/suppliers")
+        resp = client.get("/api/suppliers", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_returns_all_8_suppliers(self, seeded_db):
-        resp = client.get("/api/suppliers")
+        resp = client.get("/api/suppliers", headers=_auth_headers())
         data = resp.json()
         assert len(data) >= 8  # seed has 8; other tests may add more via POST
 
     def test_sorted_by_name(self, seeded_db):
-        resp = client.get("/api/suppliers")
+        resp = client.get("/api/suppliers", headers=_auth_headers())
         names = [s["name"] for s in resp.json()]
         assert names == sorted(names)
 
     def test_has_id_and_name(self, seeded_db):
-        resp = client.get("/api/suppliers")
+        resp = client.get("/api/suppliers", headers=_auth_headers())
         first = resp.json()[0]
         assert "id" in first
         assert "name" in first
@@ -59,11 +66,11 @@ class TestListSuppliers:
 
 class TestListPurchasesUnfiltered:
     def test_returns_200(self, seeded_db):
-        resp = client.get("/api/purchases")
+        resp = client.get("/api/purchases", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_response_shape(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert "rows" in data
         assert "total_count" in data
         assert "total_amount_idr" in data
@@ -71,30 +78,30 @@ class TestListPurchasesUnfiltered:
         assert "page_size" in data
 
     def test_page_size_50(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert data["page_size"] == 50
 
     def test_first_page_at_most_50_rows(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert len(data["rows"]) <= 50
 
     def test_newest_first(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         rows = data["rows"]
         if len(rows) >= 2:
             dates = [r["purchase_date"] for r in rows]
             assert dates == sorted(dates, reverse=True)
 
     def test_total_count_positive(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert data["total_count"] > 0
 
     def test_total_amount_idr_positive(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert data["total_amount_idr"] > 0
 
     def test_row_has_expected_fields(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         row = data["rows"][0]
         for field in ("id", "purchase_date", "item_id", "item_name",
                       "supplier_id", "supplier_name", "qty", "unit",
@@ -102,7 +109,7 @@ class TestListPurchasesUnfiltered:
             assert field in row, f"Missing field: {field}"
 
     def test_total_idr_is_qty_times_price(self, seeded_db):
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         for row in data["rows"]:
             assert row["total_idr"] == row["qty"] * row["unit_price_idr"]
 
@@ -123,12 +130,12 @@ class TestPurchasesSupplierFilter:
 
     def test_supplier_filter_returns_only_that_supplier(self, seeded_db):
         sid = self._get_first_supplier_id(seeded_db)
-        data = client.get(f"/api/purchases?supplier_id={sid}").json()
+        data = client.get(f"/api/purchases?supplier_id={sid}", headers=_auth_headers()).json()
         for row in data["rows"]:
             assert row["supplier_id"] == sid
 
     def test_supplier_filter_unknown_returns_empty(self, seeded_db):
-        data = client.get("/api/purchases?supplier_id=99999").json()
+        data = client.get("/api/purchases?supplier_id=99999", headers=_auth_headers()).json()
         assert data["rows"] == []
         assert data["total_count"] == 0
 
@@ -139,24 +146,24 @@ class TestPurchasesSupplierFilter:
 
 class TestPurchasesSearchFilter:
     def test_search_by_item_name(self, seeded_db):
-        data = client.get("/api/purchases?search=Bearing").json()
+        data = client.get("/api/purchases?search=Bearing", headers=_auth_headers()).json()
         assert data["total_count"] > 0
         for row in data["rows"]:
             assert "bearing" in row["item_name"].lower()
 
     def test_search_by_supplier_name(self, seeded_db):
-        data = client.get("/api/purchases?search=Sinar").json()
+        data = client.get("/api/purchases?search=Sinar", headers=_auth_headers()).json()
         assert data["total_count"] > 0
         for row in data["rows"]:
             assert "sinar" in row["supplier_name"].lower()
 
     def test_search_by_po_number(self, seeded_db):
         # PO-0318 is from 2026-03-18; expand the date range to cover it
-        data = client.get("/api/purchases?search=PO-0318&date_from=2026-01-01&date_to=2026-12-31").json()
+        data = client.get("/api/purchases?search=PO-0318&date_from=2026-01-01&date_to=2026-12-31", headers=_auth_headers()).json()
         assert data["total_count"] >= 1
 
     def test_search_no_match_returns_empty(self, seeded_db):
-        data = client.get("/api/purchases?search=XXXXXXXXXXXXXXXX").json()
+        data = client.get("/api/purchases?search=XXXXXXXXXXXXXXXX", headers=_auth_headers()).json()
         assert data["rows"] == []
         assert data["total_count"] == 0
 
@@ -172,7 +179,7 @@ class TestPurchasesDateFilter:
         d_to = today - timedelta(days=1)
         d_from = d_to - timedelta(days=6)
         url = f"/api/purchases?date_from={d_from.isoformat()}&date_to={d_to.isoformat()}"
-        data = client.get(url).json()
+        data = client.get(url, headers=_auth_headers()).json()
         # All returned rows should be within that window
         for row in data["rows"]:
             row_date = datetime.fromisoformat(row["purchase_date"]).astimezone(JAKARTA).date()
@@ -180,7 +187,7 @@ class TestPurchasesDateFilter:
 
     def test_future_date_range_returns_empty(self, seeded_db):
         future = (_today_jakarta() + timedelta(days=365)).isoformat()
-        data = client.get(f"/api/purchases?date_from={future}&date_to={future}").json()
+        data = client.get(f"/api/purchases?date_from={future}&date_to={future}", headers=_auth_headers()).json()
         assert data["total_count"] == 0
 
 
@@ -190,8 +197,8 @@ class TestPurchasesDateFilter:
 
 class TestPurchasesPagination:
     def test_page2_different_from_page1(self, seeded_db):
-        data1 = client.get("/api/purchases?page=1").json()
-        data2 = client.get("/api/purchases?page=2").json()
+        data1 = client.get("/api/purchases?page=1", headers=_auth_headers()).json()
+        data2 = client.get("/api/purchases?page=2", headers=_auth_headers()).json()
         # If there are more than 50 rows the pages should differ
         if data1["total_count"] > 50:
             ids1 = {r["id"] for r in data1["rows"]}
@@ -199,7 +206,7 @@ class TestPurchasesPagination:
             assert ids1.isdisjoint(ids2)
 
     def test_page2_empty_when_not_enough_rows(self, seeded_db):
-        data = client.get("/api/purchases?page=9999").json()
+        data = client.get("/api/purchases?page=9999", headers=_auth_headers()).json()
         assert data["rows"] == []
 
 
@@ -235,7 +242,7 @@ class TestPurchasesTotalAmount:
         finally:
             sess.close()
 
-        data = client.get("/api/purchases").json()
+        data = client.get("/api/purchases", headers=_auth_headers()).json()
         assert data["total_amount_idr"] == expected_total
 
 
@@ -257,32 +264,32 @@ class TestItemPurchaseHistory:
 
     def test_returns_200(self, seeded_db):
         bearing_id = self._get_bearing_id(seeded_db)
-        resp = client.get(f"/api/purchases/item/{bearing_id}")
+        resp = client.get(f"/api/purchases/item/{bearing_id}", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_404_for_unknown_item(self, seeded_db):
-        resp = client.get("/api/purchases/item/99999")
+        resp = client.get("/api/purchases/item/99999", headers=_auth_headers())
         assert resp.status_code == 404
 
     def test_returns_at_most_10_purchases(self, seeded_db):
         bearing_id = self._get_bearing_id(seeded_db)
-        data = client.get(f"/api/purchases/item/{bearing_id}").json()
+        data = client.get(f"/api/purchases/item/{bearing_id}", headers=_auth_headers()).json()
         assert len(data["last_purchases"]) <= 10
 
     def test_3buy_average_for_bearing(self, seeded_db):
         """Bearing 6205 ZZ last 3 purchases are all 38,000 → avg = 38,000."""
         bearing_id = self._get_bearing_id(seeded_db)
-        data = client.get(f"/api/purchases/item/{bearing_id}").json()
+        data = client.get(f"/api/purchases/item/{bearing_id}", headers=_auth_headers()).json()
         assert data["reference_price_idr"] == 38_000
 
     def test_has_item_name(self, seeded_db):
         bearing_id = self._get_bearing_id(seeded_db)
-        data = client.get(f"/api/purchases/item/{bearing_id}").json()
+        data = client.get(f"/api/purchases/item/{bearing_id}", headers=_auth_headers()).json()
         assert data["item_name"] == "Bearing 6205 ZZ"
 
     def test_total_idr_per_row(self, seeded_db):
         bearing_id = self._get_bearing_id(seeded_db)
-        data = client.get(f"/api/purchases/item/{bearing_id}").json()
+        data = client.get(f"/api/purchases/item/{bearing_id}", headers=_auth_headers()).json()
         for row in data["last_purchases"]:
             assert row["total_idr"] == row["qty"] * row["unit_price_idr"]
 
@@ -293,11 +300,11 @@ class TestItemPurchaseHistory:
 
 class TestRequestItemsList:
     def test_returns_200(self, seeded_db):
-        resp = client.get("/api/request-items")
+        resp = client.get("/api/request-items", headers=_auth_headers())
         assert resp.status_code == 200
 
     def test_response_shape(self, seeded_db):
-        data = client.get("/api/request-items").json()
+        data = client.get("/api/request-items", headers=_auth_headers()).json()
         assert "rows" in data
         assert "total_count" in data
         assert "page" in data
@@ -306,24 +313,24 @@ class TestRequestItemsList:
     def test_default_excludes_today(self, seeded_db):
         """Default date_to is yesterday, so today's 5 rows should not appear."""
         today = _today_jakarta()
-        data = client.get("/api/request-items").json()
+        data = client.get("/api/request-items", headers=_auth_headers()).json()
         for row in data["rows"]:
             row_date = datetime.fromisoformat(row["requested_at"]).astimezone(JAKARTA).date()
             assert row_date < today, f"Today's row found: {row_date}"
 
     def test_past_rows_present(self, seeded_db):
         """The 10 seeded past requests should yield rows."""
-        data = client.get("/api/request-items").json()
+        data = client.get("/api/request-items", headers=_auth_headers()).json()
         assert data["total_count"] >= 10
 
     def test_status_filter(self, seeded_db):
-        data = client.get("/api/request-items?status=approved").json()
+        data = client.get("/api/request-items?status=approved", headers=_auth_headers()).json()
         for row in data["rows"]:
             assert row["status"] == "approved"
 
     def test_status_all_returns_all(self, seeded_db):
-        all_data = client.get("/api/request-items?status=all").json()
-        no_status = client.get("/api/request-items").json()
+        all_data = client.get("/api/request-items?status=all", headers=_auth_headers()).json()
+        no_status = client.get("/api/request-items", headers=_auth_headers()).json()
         assert all_data["total_count"] == no_status["total_count"]
 
     def test_existing_detail_endpoint_not_shadowed(self, seeded_db):
@@ -337,7 +344,7 @@ class TestRequestItemsList:
             ri_id = ri.id
         finally:
             sess.close()
-        resp = client.get(f"/api/request-items/{ri_id}")
+        resp = client.get(f"/api/request-items/{ri_id}", headers=_auth_headers())
         assert resp.status_code == 200
         # Verify it's the detail schema (has 'flags', 'actions', etc.)
         assert "flags" in resp.json()

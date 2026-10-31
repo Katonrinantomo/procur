@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { RequestItemsListResponse } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 interface RequestHistoryParams {
   dateFrom: string
@@ -15,7 +16,7 @@ async function fetchRequestHistory(params: RequestHistoryParams): Promise<Reques
   if (params.status && params.status !== 'all') qs.set('status', params.status)
   qs.set('page', String(params.page))
 
-  const res = await fetch(`/api/request-items?${qs.toString()}`)
+  const res = await fetchWithAuth(`/api/request-items?${qs.toString()}`)
   if (!res.ok) throw new Error(`Request history fetch failed: ${res.status}`)
   return res.json() as Promise<RequestItemsListResponse>
 }

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { fetchWithAuth } from '../lib/api'
 
 interface ImportError {
   line: number
@@ -35,7 +36,7 @@ export default function ImportPage() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const resp = await fetch('/api/imports/purchases', { method: 'POST', body: form })
+      const resp = await fetchWithAuth('/api/imports/purchases', { method: 'POST', body: form })
       if (!resp.ok) {
         const text = await resp.text()
         setUploadError(`Server error ${resp.status}: ${text}`)
@@ -91,7 +92,21 @@ export default function ImportPage() {
             <span style={{ fontSize: 13, fontWeight: 500, color: '#1A1A1A' }}>Excel file (.xlsx)</span>
             <a
               href="/api/imports/purchases/template"
-              download="procur-purchases-template.xlsx"
+              onClick={(e) => {
+                // A plain link can't send the Bearer token; fetch the file and save it.
+                e.preventDefault()
+                void fetchWithAuth('/api/imports/purchases/template')
+                  .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+                  .then((blob) => {
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'procur-purchases-template.xlsx'
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  })
+                  .catch(() => {})
+              }}
               style={{ fontSize: 12, color: '#3b82d4', textDecoration: 'none' }}
             >
               Download template

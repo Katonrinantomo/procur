@@ -41,10 +41,11 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Item, Purchase, Supplier
+from app.routers.auth import get_current_user, require_roles
 from app.services.matcher import match_item, normalize_name
 from app.services.xlsx_parser import ParsedRow, RowError, parse_xlsx
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 _REQUIRED_COLS = {"date", "po_number", "supplier", "item", "qty", "unit", "unit_price_idr"}
 
@@ -279,7 +280,11 @@ _MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 _XLSX_MAGIC = b"PK\x03\x04"
 
 
-@router.post("/api/imports/purchases", response_model=ImportSummary)
+@router.post(
+    "/api/imports/purchases",
+    response_model=ImportSummary,
+    dependencies=[Depends(require_roles("purchasing"))],
+)
 def import_purchases(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),

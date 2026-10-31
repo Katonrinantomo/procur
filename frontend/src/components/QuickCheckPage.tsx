@@ -6,6 +6,7 @@ import { useState } from 'react'
 import StatusChip from './StatusChip'
 import { formatRupiah, formatRupiahWithPrefix, formatPct, formatDate } from '../lib/format'
 import type { QuickCheckResult } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 const EXAMPLE_CHIPS = [
   'bearing 6205 ZZ 20 pcs @38.500',
@@ -118,7 +119,7 @@ function ResultCard({ result }: ResultCardProps) {
     setAddState('loading')
     setAddError(null)
     try {
-      const res = await fetch('/api/requests', {
+      const res = await fetchWithAuth('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -351,7 +352,7 @@ export default function QuickCheckPage() {
     setErrorMsg(null)
     setLastText(text)
     try {
-      const res = await fetch('/api/quick-check', {
+      const res = await fetchWithAuth('/api/quick-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),

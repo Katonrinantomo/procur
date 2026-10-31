@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     # The app will refuse to start without a valid DATABASE_URL.
     DATABASE_URL: str = ""
 
+    # JWT signing secret — required, at least 32 characters.
+    # The app will refuse to start without it.
+    JWT_SECRET: str = ""
+
+    # Demo password used by seed.py to create demo users.
+    DEMO_PASSWORD: str = "password123"
+
     # Comma-separated list of allowed Host header values for TrustedHostMiddleware.
     # Override in tests or staging by setting ALLOWED_HOSTS env var.
     ALLOWED_HOSTS: str = "localhost,127.0.0.1"
@@ -57,5 +64,17 @@ def validate_settings() -> None:
     if not settings.DATABASE_URL:
         logger.critical(
             "DATABASE_URL tidak dikonfigurasi. Set di backend/.env atau env var."
+        )
+        sys.exit(1)
+
+    if not settings.JWT_SECRET:
+        logger.critical(
+            "JWT_SECRET tidak dikonfigurasi. Set di backend/.env atau env var."
+        )
+        sys.exit(1)
+
+    if len(settings.JWT_SECRET) < 32:
+        logger.critical(
+            "JWT_SECRET harus minimal 32 karakter."
         )
         sys.exit(1)

@@ -14,25 +14,43 @@ import LandingPage from './components/LandingPage'
 import { useQueue } from './hooks/useQueue'
 import { useRequestItem } from './hooks/useRequestItem'
 import { useHash } from './hooks/useHash'
+import { canAddRequests, canOpenHash, landingHash } from './lib/roles'
 import type { QueueRow } from './types/api'
 
 export default function App() {
   const [token] = useState<string | null>(
     () => localStorage.getItem('token')
   )
-  const [role] = useState<string | null>(
-    () => localStorage.getItem('role')
+  // A 401 elsewhere sets auth_message and reloads; go straight to the login form.
+  const [showLogin, setShowLogin] = useState(
+    () => sessionStorage.getItem('auth_message') !== null
   )
-
-  const [showLogin, setShowLogin] = useState(false)
 
   if (!token && !showLogin) {
     return <LandingPage onLoginClick={() => setShowLogin(true)} />
   }
 
   if (!token) {
-    return <LoginPage onLogin={() => window.location.reload()} />
+    return (
+      <LoginPage
+        onLogin={(role) => {
+          window.location.hash = landingHash(role)
+          window.location.reload()
+        }}
+      />
+    )
   }
+
+  return <AuthedApp />
+}
+
+function AuthedApp() {
+  const [role] = useState<string | null>(
+    () => localStorage.getItem('role')
+  )
+  const [username] = useState<string | null>(
+    () => localStorage.getItem('username')
+  )
 
   const hash = useHash()
   const { data: queueData, isLoading: queueLoading, isError: queueError, refetch } = useQueue()
@@ -41,14 +59,12 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const addBtnRef = useRef<HTMLButtonElement>(null)
 
-  // Role-based default tab on first load only (not on every hash change)
-  const initialHashRef = useRef<string | null>(null)
-  if (initialHashRef.current === null && role) {
-    initialHashRef.current = role === 'finance' ? '#history' : '#today'
-    if (window.location.hash !== initialHashRef.current) {
-      window.location.hash = initialHashRef.current
+  // Send the user to their role's landing page when the hash is one they can't open.
+  useEffect(() => {
+    if (!canOpenHash(role, hash)) {
+      window.location.hash = landingHash(role)
     }
-  }
+  }, [role, hash])
 
   const { data: detail, isLoading: detailLoading } = useRequestItem(selectedId)
 
@@ -88,6 +104,7 @@ export default function App() {
         onAddRequests={() => setDialogOpen(true)}
         addRequestsRef={addBtnRef}
         role={role}
+        username={username}
         hash={hash}
       />
       {dialogOpen && (
@@ -174,7 +191,7 @@ export default function App() {
         {!queueLoading && !queueError && queueData?.rows.length === 0 && (
           <div style={{ textAlign: 'center', padding: '80px 0', color: '#6B6B66', fontSize: 15 }}>
             <p style={{ margin: '0 0 16px' }}>No requests yet today.</p>
-            <button
+            {canAddRequests(role) && <button
               type="button"
               onClick={() => setDialogOpen(true)}
               style={{
@@ -190,7 +207,7 @@ export default function App() {
               }}
             >
               Add requests
-            </button>
+            </button>}
           </div>
         )}
 

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List
 from app.db import get_db
 from app.models import AuditLog, User, RequestItem
-from app.routers.auth import get_current_user
+from app.routers.auth import CurrentUser, get_current_user, require_roles
 from app.schemas import AuditLogOut
 from pydantic import BaseModel
 from datetime import datetime
@@ -17,14 +17,15 @@ class AuditLogResponse(BaseModel):
     note: str | None
     created_at: datetime
 
-router = APIRouter()
+# owner and finance may view audit logs; all authenticated users satisfy the
+# router-level dependency, role check is per-endpoint.
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 @router.get("/api/audit-logs", response_model=List[AuditLogResponse])
-def get_audit_logs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Hanya owner dan finance yang boleh melihat
-    if current_user.role not in ("owner", "finance"):
-        raise HTTPException(status_code=403, detail="Forbidden")
-    
+def get_audit_logs(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_roles("owner", "finance")),
+):
     results = db.execute(
         select(AuditLog, User.role, RequestItem.raw_name)
         .join(User, AuditLog.user_id == User.id)

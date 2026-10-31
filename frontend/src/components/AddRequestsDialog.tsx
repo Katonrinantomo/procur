@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState, useId } from 'react'
 import type { LineItemDraft, QueueRow } from '../types/api'
+import { fetchWithAuth } from '../lib/api'
 
 // ─── shared token values (match design/reference.html) ───────────────────────
 const S = {
@@ -154,7 +155,7 @@ export default function AddRequestsDialog({ onClose, onSaved }: AddRequestsDialo
     setOrganizing(true)
     setParseError(null)
     try {
-      const res = await fetch('/api/requests/parse', {
+      const res = await fetchWithAuth('/api/requests/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: pastedText, requested_by: requestedBy || undefined }),
@@ -215,7 +216,7 @@ export default function AddRequestsDialog({ onClose, onSaved }: AddRequestsDialo
         quoted_unit_price_idr: r.quoted_unit_price_idr || undefined,
         quoting_supplier_name: r.supplier || undefined,
       }))
-      const res = await fetch('/api/requests', {
+      const res = await fetchWithAuth('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

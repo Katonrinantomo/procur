@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Item, Purchase, Supplier
+from app.routers.auth import get_current_user
 from app.schemas import ItemPurchaseHistory, PurchaseRow, PurchasesResponse, SupplierOption
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 JAKARTA = timezone(timedelta(hours=7))
 PAGE_SIZE = 50

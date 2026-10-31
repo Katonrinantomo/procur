@@ -14,6 +14,7 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
 os.environ.setdefault("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 

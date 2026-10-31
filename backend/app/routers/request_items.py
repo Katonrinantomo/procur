@@ -14,7 +14,7 @@ from fastapi import Request as StarletteRequest
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from app.routers.auth import CurrentUser, require_role
+from app.routers.auth import CurrentUser, get_current_user, require_roles
 from app.models import User, AuditLog
 from app.db import get_db
 from app.models import Action, Flag, Item, Purchase, Request, RequestItem, Stock, WebQuote
@@ -31,7 +31,9 @@ from app.security import limiter, mask_pii, RATE_LLM
 from app.services.checker import check_item
 from app.services.pricing import get_price_status
 
-router = APIRouter()
+# Router-level auth: all endpoints in this router require a valid token.
+# Role-specific restrictions are applied per endpoint with require_roles().
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 JAKARTA = timezone(timedelta(hours=7))
 
@@ -213,6 +215,7 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
 
 # ---------------------------------------------------------------------------
 # GET /api/request-items/{id}
+# All authenticated users may read a row.
 # ---------------------------------------------------------------------------
 
 @router.get("/api/request-items/{item_id}", response_model=RequestItemDetail)
@@ -223,12 +226,31 @@ def get_request_item(item_id: int, db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------------------
 # POST /api/request-items/{id}/recheck
+# purchasing: own returned rows; owner: any row.
+# We allow both roles and verify per-row ownership in the handler.
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/recheck", response_model=RequestItemDetail)
 @limiter.limit(RATE_LLM)
-def recheck_request_item(request: StarletteRequest, item_id: int, db: Session = Depends(get_db)):
+def recheck_request_item(
+    request: StarletteRequest,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     ri = _get_or_404(db, item_id)
+
+    # purchasing may only recheck their own returned rows; owner may recheck any
+    if current_user.role == "purchasing":
+        parent_req = db.get(Request, ri.request_id)
+        if parent_req is None or parent_req.created_by_user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Purchasing can only recheck their own returned rows",
+            )
+    elif current_user.role not in ("owner",):
+        raise HTTPException(status_code=403, detail="Not authorised to recheck")
+
     check_item(ri, db)
     db.commit()
     db.refresh(ri)
@@ -237,6 +259,7 @@ def recheck_request_item(request: StarletteRequest, item_id: int, db: Session = 
 
 # ---------------------------------------------------------------------------
 # POST /api/request-items/{id}/approve
+# owner only; 403 if the owner created the request.
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/approve", response_model=RequestItemDetail)
@@ -244,15 +267,24 @@ def approve_request_item(
     item_id: int,
     body: ApproveIn = ApproveIn(),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_role("owner")),
+    current_user: CurrentUser = Depends(require_roles("owner")),
 ):
     ri = _get_or_404(db, item_id)
+
+    # Self-approval guard: owner may not approve a request they created
+    parent_req = db.get(Request, ri.request_id)
+    if parent_req is not None and parent_req.created_by_user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot approve a request you created",
+        )
+
     ri.status = "approved"
     db.add(Action(
         request_item_id=ri.id,
         action="approve",
         note=None,
-        actor=body.actor,
+        actor=current_user.username,
     ))
     # Audit log — owner-only action
     db.add(AuditLog(
@@ -268,6 +300,7 @@ def approve_request_item(
 
 # ---------------------------------------------------------------------------
 # POST /api/request-items/{id}/return
+# owner only; 403 if the owner created the request.
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/return", response_model=RequestItemDetail)
@@ -275,15 +308,24 @@ def return_request_item(
     item_id: int,
     body: ReturnIn,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner")),
+    current_user: CurrentUser = Depends(require_roles("owner")),
 ):
     ri = _get_or_404(db, item_id)
+
+    # Self-approval guard: owner may not return a request they created
+    parent_req = db.get(Request, ri.request_id)
+    if parent_req is not None and parent_req.created_by_user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot return a request you created",
+        )
+
     ri.status = "returned"
     db.add(Action(
         request_item_id=ri.id,
         action="return",
         note=body.note,
-        actor=body.actor,
+        actor=current_user.username,
     ))
     # Audit log — owner-only action
     db.add(AuditLog(

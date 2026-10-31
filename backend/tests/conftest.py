@@ -15,8 +15,16 @@ from sqlalchemy.orm import sessionmaker
 
 # Point the app at SQLite before importing anything that reads settings.
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+# JWT_SECRET must be at least 32 chars; use a fixed test secret.
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
+os.environ.setdefault("DEMO_PASSWORD", "password123")
 # Allow TestClient's default host "testserver" so TrustedHostMiddleware passes.
 os.environ.setdefault("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+
+# Lower PBKDF2 iterations in tests so the seed runs fast.
+# The real 600,000-iteration value is production-only; tests use 1,000.
+import app.security as _sec_mod  # noqa: E402 — must come after env override
+_sec_mod._ITERATIONS = 1_000
 
 from app.db import Base  # noqa: E402 — must come after env override
 from app.models import (  # noqa: E402
@@ -70,8 +78,10 @@ def seeded_db():
     _engine.dispose()
     import pathlib
     p = pathlib.Path("./test_procur.db")
-    if p.exists():
-        p.unlink()
+    try:
+        p.unlink(missing_ok=True)
+    except PermissionError:
+        pass  # Windows: file still held by SQLite; harmless, temp file is cleaned on next run
 
 
 @pytest.fixture()

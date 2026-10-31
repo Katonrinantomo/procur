@@ -19,12 +19,19 @@ import pathlib
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 
 client = TestClient(app)
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 _SAMPLE_CSV = (
     pathlib.Path(__file__).parent.parent / "sample_data" / "purchases_sample.csv"
@@ -38,6 +45,7 @@ def _upload_sample() -> dict:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("purchases_sample.csv", f, "text/csv")},
+            headers=_auth_headers(),
         )
     assert resp.status_code == 200, resp.text
     return resp.json()
@@ -72,6 +80,7 @@ class TestImportPurchases:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("bad.csv", io.BytesIO(bad_csv.encode()), "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 200
         result = resp.json()
@@ -87,6 +96,7 @@ class TestImportPurchases:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("bad.csv", io.BytesIO(bad_csv.encode()), "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 200
         result = resp.json()
@@ -106,6 +116,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("data.xls", io.BytesIO(b"dummy"), "application/octet-stream")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 400
         assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
@@ -114,6 +125,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("report.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 400
         assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
@@ -122,6 +134,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("photo.png", io.BytesIO(b"\x89PNG"), "image/png")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 400
         assert "Only .xlsx and .csv files are supported" in resp.json()["detail"]
@@ -132,6 +145,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("big.csv", big, "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 413
         assert "5 MB" in resp.json()["detail"]
@@ -141,6 +155,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("big.xlsx", big, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 413
         assert "5 MB" in resp.json()["detail"]
@@ -158,6 +173,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("ok.csv", io.BytesIO(data), "text/csv")},
+            headers=_auth_headers(),
         )
         # Not 413 — may be 200 with 0 rows or parse errors (content is padded)
         assert resp.status_code != 413
@@ -169,6 +185,7 @@ class TestImportHardening:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("bad_encoding.csv", bad_bytes, "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 400
         assert "UTF-8" in resp.json()["detail"]
@@ -187,6 +204,7 @@ class TestImportMagicBytesAndRowLimit:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("evil.xlsx", fake_xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 400
         assert "valid .xlsx" in resp.json()["detail"]
@@ -199,6 +217,7 @@ class TestImportMagicBytesAndRowLimit:
             resp = client.post(
                 "/api/imports/purchases",
                 files={"file": ("purchases_sample.xlsx", f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+                headers=_auth_headers(),
             )
         # Must NOT be rejected at the magic-bytes stage
         assert resp.status_code == 200

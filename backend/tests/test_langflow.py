@@ -17,9 +17,17 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from app.services.organizer import LineItemDraft, parse_text  # noqa: E402
 from app.services.langflow_client import LangflowError  # noqa: E402
+from app.security import create_access_token  # noqa: E402
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    """Return Authorization headers with a valid JWT for the given role."""
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +185,7 @@ def test_parse_endpoint_returns_drafts(seeded_db):
         resp = client.post(
             "/api/requests/parse",
             json={"text": "maintenance minta bearing 6205 ZZ 20 pcs"},
+            headers=_auth_headers(),
         )
 
     assert resp.status_code == 200
@@ -205,6 +214,7 @@ def test_parse_endpoint_returns_502_on_langflow_error(seeded_db):
         resp = client.post(
             "/api/requests/parse",
             json={"text": "some text"},
+            headers=_auth_headers(),
         )
 
     assert resp.status_code == 502

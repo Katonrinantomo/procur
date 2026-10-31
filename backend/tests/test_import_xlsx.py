@@ -20,13 +20,20 @@ import openpyxl
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_procur.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars!!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.security import create_access_token  # noqa: E402
 from app.services.xlsx_parser import _parse_date, _parse_price, parse_xlsx  # noqa: E402
 
 client = TestClient(app)
+
+
+def _auth_headers(role: str = "purchasing", user_id: int = 1) -> dict:
+    token = create_access_token(user_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 _SAMPLE_CSV = (
     pathlib.Path(__file__).parent.parent / "sample_data" / "purchases_sample.csv"
@@ -59,6 +66,7 @@ def _upload_xlsx(xlsx_bytes: bytes, filename: str = "test.xlsx") -> dict:
         "/api/imports/purchases",
         files={"file": (filename, io.BytesIO(xlsx_bytes),
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=_auth_headers(),
     )
     assert resp.status_code == 200, resp.text
     return resp.json()
@@ -266,6 +274,7 @@ class TestImportCsvFallback:
             resp = client.post(
                 "/api/imports/purchases",
                 files={"file": ("purchases_sample.csv", f, "text/csv")},
+                headers=_auth_headers(),
             )
         assert resp.status_code == 200
         result = resp.json()
@@ -278,6 +287,7 @@ class TestImportCsvFallback:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("bad.csv", io.BytesIO(bad_csv.encode()), "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 200
         result = resp.json()
@@ -292,6 +302,7 @@ class TestImportCsvFallback:
         resp = client.post(
             "/api/imports/purchases",
             files={"file": ("bad.csv", io.BytesIO(bad_csv.encode()), "text/csv")},
+            headers=_auth_headers(),
         )
         assert resp.status_code == 200
         result = resp.json()
@@ -305,19 +316,19 @@ class TestImportCsvFallback:
 
 class TestTemplateEndpoint:
     def test_template_returns_xlsx(self):
-        resp = client.get("/api/imports/purchases/template")
+        resp = client.get("/api/imports/purchases/template", headers=_auth_headers())
         assert resp.status_code == 200
         assert "spreadsheetml" in resp.headers.get("content-type", "")
 
     def test_template_has_correct_headers(self):
-        resp = client.get("/api/imports/purchases/template")
+        resp = client.get("/api/imports/purchases/template", headers=_auth_headers())
         wb = openpyxl.load_workbook(io.BytesIO(resp.content))
         ws = wb.active
         header = [cell.value for cell in ws[1]]
         assert header == ["date", "po_number", "supplier", "item", "qty", "unit", "unit_price_idr"]
 
     def test_template_has_example_rows(self):
-        resp = client.get("/api/imports/purchases/template")
+        resp = client.get("/api/imports/purchases/template", headers=_auth_headers())
         wb = openpyxl.load_workbook(io.BytesIO(resp.content))
         ws = wb.active
         assert ws.max_row >= 3  # header + at least 2 example rows

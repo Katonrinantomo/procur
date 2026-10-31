@@ -63,76 +63,120 @@ def safe_http_url(url: str | None) -> str | None:
 
 # ---------------------------------------------------------------------------
 # Password hashing (PBKDF2-HMAC-SHA256, stdlib only)
+# Format: pbkdf2_sha256$600000$<salt_b64>$<hash_b64>
 # ---------------------------------------------------------------------------
 import base64
 import hashlib
 import hmac
 import json
+import os
 import time
-from app.config import settings
 
-_SALT = b"procur.ai"
 _HASH_NAME = "sha256"
-_ITERATIONS = 100_000
+_ITERATIONS = 600_000
 _DK_LEN = 32
 
-def hash_password(password: str) -> str:
-    dk = hashlib.pbkdf2_hmac(_HASH_NAME, password.encode(), _SALT, _ITERATIONS, dklen=_DK_LEN)
-    return base64.urlsafe_b64encode(dk).decode()
 
-def verify_password(password: str, hashed: str) -> bool:
+def hash_password(password: str) -> str:
+    """Hash *password* with a random per-user salt.
+
+    Returns a string in the format:
+        pbkdf2_sha256$600000$<salt_b64>$<hash_b64>
+    """
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac(_HASH_NAME, password.encode(), salt, _ITERATIONS, dklen=_DK_LEN)
+    salt_b64 = base64.urlsafe_b64encode(salt).decode()
+    hash_b64 = base64.urlsafe_b64encode(dk).decode()
+    return f"pbkdf2_sha256${_ITERATIONS}${salt_b64}${hash_b64}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """Verify *password* against a stored hash.
+
+    Accepts the new format  pbkdf2_sha256$<iterations>$<salt>$<hash>
+    as well as the legacy base64-only format for backward compatibility
+    during the transition.
+    """
     try:
-        expected = base64.urlsafe_b64decode(hashed.encode())
-        actual = hashlib.pbkdf2_hmac(_HASH_NAME, password.encode(), _SALT, _ITERATIONS, dklen=_DK_LEN)
-        return hmac.compare_digest(expected, actual)
+        if stored.startswith("pbkdf2_sha256$"):
+            parts = stored.split("$")
+            if len(parts) != 4:
+                return False
+            _, iterations_str, salt_b64, hash_b64 = parts
+            iterations = int(iterations_str)
+            salt = base64.urlsafe_b64decode(salt_b64)
+            expected = base64.urlsafe_b64decode(hash_b64)
+            actual = hashlib.pbkdf2_hmac(_HASH_NAME, password.encode(), salt, iterations, dklen=_DK_LEN)
+            return hmac.compare_digest(expected, actual)
+        # Legacy format (single base64 blob, static salt) — reject
+        return False
     except Exception:
         return False
 
+
 # ---------------------------------------------------------------------------
 # JWT (HMAC-SHA256, stdlib only)
+# The signing key is read lazily from settings so tests can override it.
 # ---------------------------------------------------------------------------
-_SECRET_KEY = getattr(settings, "SECRET_KEY", "procur.ai-dev-secret-change-me").encode()
 _JWT_ALG = "HS256"
 _JWT_EXPIRY_SECONDS = 3600  # 1 hour
 
+
+def _get_secret_key() -> bytes:
+    """Return the JWT signing key from settings.JWT_SECRET."""
+    from app.config import settings
+    return settings.JWT_SECRET.encode()
+
+
 def _base64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
 
 def _base64url_decode(data: str) -> bytes:
     padding = "=" * (4 - (len(data) % 4))
     return base64.urlsafe_b64decode(data + padding)
 
+
 def create_access_token(user_id: int, role: str) -> str:
     header = {"alg": _JWT_ALG, "typ": "JWT"}
     payload = {"sub": str(user_id), "role": role, "exp": int(time.time()) + _JWT_EXPIRY_SECONDS}
-    
+
     header_b64 = _base64url_encode(json.dumps(header, separators=(",", ":")).encode())
     payload_b64 = _base64url_encode(json.dumps(payload, separators=(",", ":")).encode())
-    
+
     signing_input = f"{header_b64}.{payload_b64}".encode()
-    signature = hmac.new(_SECRET_KEY, signing_input, hashlib.sha256).digest()
+    signature = hmac.new(_get_secret_key(), signing_input, hashlib.sha256).digest()
     signature_b64 = _base64url_encode(signature)
-    
+
     return f"{header_b64}.{payload_b64}.{signature_b64}"
 
-def decode_access_token(token: str) -> dict:
+
+def decode_access_token(token: str) -> dict | None:
+    """Decode and verify *token*.
+
+    Returns the payload dict on success, or None on any failure
+    (bad signature, expired, malformed, missing sub).
+    """
     try:
         parts = token.split(".")
         if len(parts) != 3:
-            return {}
+            return None
         header_b64, payload_b64, signature_b64 = parts
-        
+
         signing_input = f"{header_b64}.{payload_b64}".encode()
-        expected_sig = hmac.new(_SECRET_KEY, signing_input, hashlib.sha256).digest()
+        expected_sig = hmac.new(_get_secret_key(), signing_input, hashlib.sha256).digest()
         actual_sig = _base64url_decode(signature_b64)
-        
+
         if not hmac.compare_digest(expected_sig, actual_sig):
-            return {}
-            
+            return None
+
         payload = json.loads(_base64url_decode(payload_b64).decode())
         if payload.get("exp", 0) < time.time():
-            return {}
-            
+            return None
+
+        if not payload.get("sub"):
+            return None
+
         return payload
     except Exception:
-        return {}
+        return None
