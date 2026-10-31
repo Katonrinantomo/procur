@@ -279,13 +279,16 @@ class QuoteEvidenceOut(BaseModel):
     title: Optional[str]
     url: Optional[str]
     seller: Optional[str]
-    price_idr: int
+    price_idr: int                          # per item unit
+    listing_price_idr: Optional[int] = None  # as shown on the listing
+    pack_qty: Optional[int] = None
+    match: Optional[str] = None              # exact | close
 
 
 class QuoteDroppedOut(BaseModel):
     title: Optional[str]
     url: Optional[str]
-    price_idr: int
+    price_idr: Optional[int]
     reason: str
     reason_label: str
 

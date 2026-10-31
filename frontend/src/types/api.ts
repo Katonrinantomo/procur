@@ -220,13 +220,16 @@ export interface QuoteEvidence {
   title: string | null
   url: string | null
   seller: string | null
-  price_idr: number
+  price_idr: number                 // per item unit
+  listing_price_idr: number | null  // as shown on the listing
+  pack_qty: number | null
+  match: 'exact' | 'close' | null
 }
 
 export interface QuoteDropped {
   title: string | null
   url: string | null
-  price_idr: number
+  price_idr: number | null
   reason: string
   reason_label: string
 }

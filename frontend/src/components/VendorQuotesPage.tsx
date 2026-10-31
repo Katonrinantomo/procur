@@ -166,6 +166,12 @@ function EvidenceRow({ line }: { line: QuotationLine }) {
               ) : (
                 <span style={{ flex: 1 }}>{e.title ?? '—'}</span>
               )}
+              {e.match === 'close' && <span style={{ color: '#6B6B66' }}>mirip</span>}
+              {e.pack_qty !== null && e.listing_price_idr !== null && (
+                <span style={{ color: '#6B6B66' }}>
+                  <span style={mono}>{formatRupiah(e.listing_price_idr)}</span> / isi <span style={mono}>{e.pack_qty}</span>
+                </span>
+              )}
               <span style={mono}>{formatRupiah(e.price_idr)}</span>
             </div>
           ))}
@@ -174,7 +180,7 @@ function EvidenceRow({ line }: { line: QuotationLine }) {
               <span style={{ minWidth: 120 }}>Dibuang</span>
               <span style={{ flex: 1, textDecoration: 'line-through' }}>{d.title ?? d.url ?? '—'}</span>
               <span>{d.reason_label}</span>
-              <span style={mono}>{formatRupiah(d.price_idr)}</span>
+              <span style={mono}>{d.price_idr !== null ? formatRupiah(d.price_idr) : '—'}</span>
             </div>
           ))}
         </div>

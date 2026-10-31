@@ -22,6 +22,7 @@ from app.services.langflow_client import LangflowError
 # ---------------------------------------------------------------------------
 ORGANIZE_OUT = "organize_json"
 WEBCHECK_OUT = "webcheck_json"
+EXTRACT_OUT = "extract_json"
 MAKER_OUT = "maker_json"
 SERPER_RAW_OUT = "serper_raw"
 CHECKER_OUT = "checker_json"
@@ -63,40 +64,64 @@ class WebCheckOut(RootModel[list[WebOffer]]):
 
 
 # ---------------------------------------------------------------------------
-# maker_agent
+# maker_agent — two model outputs; Python joins them by line_no
+# (app/services/maker.py).  serper_raw is the Serper Multi Search output.
 # ---------------------------------------------------------------------------
 
-class MakerVendor(BaseModel):
+class ExtractVendor(BaseModel):
     name: str | None = None
-    quote_no: str | None = None
-    date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    doc_number: str | None = None
+    doc_date: str | None = None
+    payment_terms: str | None = None
 
 
-class MakerListing(BaseModel):
-    title: str
-    url: str
-    seller: str | None = None
-    price_idr: int
-    matches_item: bool
-    mismatch_reason: str | None = None
-
-
-class MakerItem(BaseModel):
+class ExtractItem(BaseModel):
     line_no: int
-    name: str
-    qty: int | None = None
+    name_as_written: str
+    brand: str | None = None
+    spec: str | None = None
+    # qty may be fractional ("1,5" meter); it is not money.
+    qty: float | None = None
     unit: str | None = None
-    unit_price_idr: int | None = None
-    line_total_idr: int | None = None
+    # Money: int rupiah.  An integral float (1250000.0) is accepted, a
+    # fractional one fails the contract.
+    unit_price: int | None = None
+    line_total: int | None = None
+    division: str | None = None
     search_query: str
-    listings: list[MakerListing] = []
 
 
-class MakerOut(BaseModel):
-    mode: Literal["ITEMS", "QUOTE"]
-    vendor: MakerVendor = MakerVendor()
-    items: list[MakerItem]
-    quote_total_idr: int | None = None
+class ExtractOut(BaseModel):
+    """extract_json: what the first model read from the document."""
+    mode: Literal["PENAWARAN", "BON"]
+    vendor: ExtractVendor = ExtractVendor()
+    currency: str | None = "IDR"
+    items: list[ExtractItem]
+    document_total: int | None = None
+    extraction_notes: list[str] = []
+
+
+class EvidenceMatch(BaseModel):
+    url: str
+    title: str
+    marketplace: str | None = None
+    price: int | None = None
+    price_text: str | None = None
+    # How many of the item's unit one listing contains; Python divides.
+    pack_qty: float | None = None
+    match: Literal["exact", "close"]
+    reason: str | None = None
+
+
+class EvidenceItem(BaseModel):
+    line_no: int
+    matches: list[EvidenceMatch] = []
+    note: str | None = None
+
+
+class EvidenceOut(BaseModel):
+    """maker_json: listings the second model says match each item."""
+    items: list[EvidenceItem]
 
 
 # ---------------------------------------------------------------------------

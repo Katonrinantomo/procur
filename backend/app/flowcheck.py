@@ -25,16 +25,20 @@ from pydantic import BaseModel
 from app.config import FLOW_ID_SETTINGS, settings
 from app.flows.contracts import (
     CHECKER_OUT,
+    EXTRACT_OUT,
     MAKER_OUT,
     NARRATOR_OUT,
     ORGANIZE_OUT,
     WEBCHECK_OUT,
     CheckerOut,
-    MakerOut,
+    EvidenceOut,
+    ExtractOut,
+    FlowContractError,
     NarratorOut,
     OrganizeOut,
     WebCheckOut,
-    parse_flow_json,
+    parse_flow_json_once,
+    repair_hint,
 )
 from app.services.langflow_client import pick_output, run_flow
 
@@ -46,8 +50,8 @@ RESULT_PATH = BACKEND_DIR / ".flowcheck_last.json"
 @dataclass(frozen=True)
 class FlowSpec:
     name: str
-    output_name: str
-    model: type[BaseModel]
+    # Every JSON output the flow must expose: (output name, contract).
+    outputs: tuple[tuple[str, type[BaseModel]], ...]
 
     @property
     def flow_id(self) -> str:
@@ -55,11 +59,11 @@ class FlowSpec:
 
 
 FLOWS: list[FlowSpec] = [
-    FlowSpec("organize", ORGANIZE_OUT, OrganizeOut),
-    FlowSpec("web_check", WEBCHECK_OUT, WebCheckOut),
-    FlowSpec("maker", MAKER_OUT, MakerOut),
-    FlowSpec("checker", CHECKER_OUT, CheckerOut),
-    FlowSpec("narrator", NARRATOR_OUT, NarratorOut),
+    FlowSpec("organize", ((ORGANIZE_OUT, OrganizeOut),)),
+    FlowSpec("web_check", ((WEBCHECK_OUT, WebCheckOut),)),
+    FlowSpec("maker", ((EXTRACT_OUT, ExtractOut), (MAKER_OUT, EvidenceOut))),
+    FlowSpec("checker", ((CHECKER_OUT, CheckerOut),)),
+    FlowSpec("narrator", ((NARRATOR_OUT, NarratorOut),)),
 ]
 
 
@@ -72,21 +76,28 @@ class FixtureResult:
     error: str
 
 
+def _validate(spec: FlowSpec, outputs: dict[str, str]) -> None:
+    for name, model in spec.outputs:
+        parse_flow_json_once(pick_output(outputs, name), model)
+
+
 async def _run_fixture(spec: FlowSpec, path: Path) -> FixtureResult:
+    """Run one fixture; on an invalid output, re-run the whole flow once with
+    a repair hint, as production does."""
     text = path.read_text(encoding="utf-8")
     repaired = False
-
-    async def run(input_text: str) -> str:
-        return pick_output(await run_flow(spec.flow_id, input_text), spec.output_name)
-
-    async def rerun(hint: str) -> str:
-        nonlocal repaired
-        repaired = True
-        return await run(f"{text}\n\n{hint}")
-
     start = time.perf_counter()
     try:
-        await parse_flow_json(await run(text), spec.model, rerun)
+        outputs = await run_flow(spec.flow_id, text)
+        try:
+            _validate(spec, outputs)
+        except Exception as first_err:  # noqa: BLE001
+            repaired = True
+            outputs = await run_flow(spec.flow_id, f"{text}\n\n{repair_hint(first_err)}")
+            try:
+                _validate(spec, outputs)
+            except Exception as second_err:  # noqa: BLE001
+                raise FlowContractError(f"invalid after repair retry: {second_err}") from second_err
     except Exception as exc:  # noqa: BLE001 — every failure is a red row
         return FixtureResult(spec.name, path.name, False, time.perf_counter() - start, str(exc))
     return FixtureResult(

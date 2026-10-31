@@ -12,7 +12,8 @@ from pydantic import ValidationError
 from app.flows.contracts import (
     CheckerOut,
     FlowContractError,
-    MakerOut,
+    EvidenceOut,
+    ExtractOut,
     NarratorOut,
     OrganizeOut,
     WebCheckOut,
@@ -22,19 +23,28 @@ from app.flows.contracts import (
 )
 from app.services.langflow_client import LangflowError
 
-MAKER = {
-    "mode": "QUOTE",
-    "vendor": {"name": "CV Sinar Pelumas", "quote_no": "Q-12", "date": "2026-10-30"},
+EXTRACT = {
+    "mode": "PENAWARAN",
+    "vendor": {"name": "CV Sinar Pelumas", "doc_number": "Q-12", "doc_date": "2026-10-30",
+               "payment_terms": None},
+    "currency": "IDR",
     "items": [{
-        "line_no": 1, "name": "Hydraulic oil ISO VG 46, 20L", "qty": 4, "unit": "drum",
-        "unit_price_idr": 1450000, "line_total_idr": 5800000,
+        "line_no": 1, "name_as_written": "Hydraulic oil ISO VG 46, 20L", "brand": None,
+        "spec": "ISO VG 46 20L", "qty": 4, "unit": "drum",
+        "unit_price": 1450000, "line_total": 5800000, "division": None,
         "search_query": "oli hidrolik iso vg 46 20l",
-        "listings": [{"title": "Oli VG46 20L", "url": "https://www.tokopedia.com/x/y",
-                      "seller": "Toko A", "price_idr": 1395000,
-                      "matches_item": True, "mismatch_reason": None}],
     }],
-    "quote_total_idr": 5800000,
+    "document_total": 5800000,
+    "extraction_notes": [],
 }
+
+EVIDENCE = {"items": [{
+    "line_no": 1,
+    "matches": [{"url": "https://www.tokopedia.com/x/y", "title": "Oli VG46 20L",
+                 "marketplace": "tokopedia", "price": 1395000, "price_text": "Rp1.395.000",
+                 "pack_qty": None, "match": "exact", "reason": "Spesifikasi sama"}],
+    "note": None,
+}]}
 
 LINE = {"name": "Bearing 6205 ZZ", "qty": 20, "unit": "pcs", "unit_price_idr": 38500, "line_total_idr": 770000}
 
@@ -57,7 +67,8 @@ NARRATOR = {"summary": "Two invoices share a number.", "patterns": ["duplicate i
 @pytest.mark.parametrize("model, payload", [
     (OrganizeOut, {"items": [{"name": "Bearing 6205 ZZ", "qty": 20}]}),
     (WebCheckOut, [{"title": "Bearing", "url": "https://shopee.co.id/x", "seller": None, "price_idr": 38000}]),
-    (MakerOut, MAKER),
+    (ExtractOut, EXTRACT),
+    (EvidenceOut, EVIDENCE),
     (CheckerOut, CHECKER),
     (NarratorOut, NARRATOR),
 ])
@@ -65,16 +76,29 @@ def test_models_accept_valid_payloads(model, payload):
     model.model_validate(payload)
 
 
-def test_maker_rejects_unknown_mode():
+def test_extract_rejects_unknown_mode():
     with pytest.raises(ValidationError):
-        MakerOut.model_validate({**MAKER, "mode": "BOTH"})
+        ExtractOut.model_validate({**EXTRACT, "mode": "QUOTE"})
 
 
-def test_maker_rejects_fractional_price():
-    bad = copy.deepcopy(MAKER)
-    bad["items"][0]["unit_price_idr"] = 1450000.5
+def test_extract_rejects_fractional_price():
+    bad = copy.deepcopy(EXTRACT)
+    bad["items"][0]["unit_price"] = 1450000.5
     with pytest.raises(ValidationError):
-        MakerOut.model_validate(bad)
+        ExtractOut.model_validate(bad)
+
+
+def test_extract_accepts_fractional_qty():
+    ok = copy.deepcopy(EXTRACT)
+    ok["items"][0]["qty"] = 1.5
+    assert ExtractOut.model_validate(ok).items[0].qty == 1.5
+
+
+def test_evidence_rejects_unknown_match():
+    bad = copy.deepcopy(EVIDENCE)
+    bad["items"][0]["matches"][0]["match"] = "maybe"
+    with pytest.raises(ValidationError):
+        EvidenceOut.model_validate(bad)
 
 
 def test_web_check_rejects_non_list():

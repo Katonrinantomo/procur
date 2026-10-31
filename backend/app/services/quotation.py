@@ -4,7 +4,7 @@ Vendor quotation check (M18).
 extract_text(raw, kind) — plain text from a PDF (pdfplumber) or XLSX
     (openpyxl).  Raises UnreadableDocument when there is no text to read.
 
-check_quotation(q, text, session) — runs maker_agent in MODE: QUOTE on the
+check_quotation(q, text, session) — runs maker_agent in MODE: PENAWARAN on the
     text, keeps only listings that pass the evidence guards, then sets every
     line's reference, band and recommendation and the quotation's vendor
     score.  The model supplies names, quantities, prices and listings only;
@@ -17,16 +17,15 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from datetime import date
 
 from sqlalchemy.orm import Session
 
 from app.models import Quotation, QuotationLine
 from app.services import pricing
-from app.services.evidence import guard_listings
 from app.services.langflow_client import LangflowError
+from app.services.maker import call_maker, quote_input
 from app.services.matcher import match_item, normalize_name
-from app.services.web_check import _MAX_QUOTES, _save_quotes, call_maker, maker_input
+from app.services.web_check import _MAX_QUOTES, _save_quotes
 
 logger = logging.getLogger(__name__)
 
@@ -91,18 +90,9 @@ def extract_text(raw: bytes, kind: str) -> str:
 # Check
 # ---------------------------------------------------------------------------
 
-def _parse_date(value: str | None) -> date | None:
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        return None
-
-
 def check_quotation(q: Quotation, text: str, session: Session) -> None:
     try:
-        maker, results = asyncio.run(call_maker(maker_input("QUOTE", text)))
+        maker = asyncio.run(call_maker(quote_input(q.filename, text)))
     except LangflowError:
         logger.exception("maker_agent failed for quotation id=%s", q.id)
         q.status = "pending"
@@ -110,20 +100,19 @@ def check_quotation(q: Quotation, text: str, session: Session) -> None:
         session.flush()
         return
 
-    q.vendor_name = maker.vendor.name
-    q.quote_no = maker.vendor.quote_no
-    q.quote_date = _parse_date(maker.vendor.date)
+    q.vendor_name = maker.vendor_name[:255] if maker.vendor_name else None
+    q.quote_no = maker.quote_no[:100] if maker.quote_no else None
+    q.quote_date = maker.quote_date
     q.quote_total_idr = maker.quote_total_idr
 
     score_lines: list[pricing.ScoreLine] = []
     dropped_count = 0
-    for line_no, item in enumerate(maker.items, start=1):
-        guarded = guard_listings(item.listings, results)
-        kept = guarded.kept[:_MAX_QUOTES]
-        dropped_count += len(guarded.dropped)
+    for line_no, line in enumerate(maker.lines, start=1):
+        kept = line.kept[:_MAX_QUOTES]
+        dropped_count += len(line.dropped)
 
         # Reference: purchase history first, else the median of kept quotes.
-        matched = match_item(item.name, session)
+        matched = match_item(line.name, session)
         ref: int | None = None
         source = "none"
         history_count = 0
@@ -132,29 +121,29 @@ def check_quotation(q: Quotation, text: str, session: Session) -> None:
             if ref is not None:
                 source = "history"
         if ref is None:
-            ref = pricing.reference_from_quotes([l.price_idr for l in kept])
+            ref = pricing.reference_from_quotes([k.price_idr for k in kept])
             if ref is not None:
                 source = "web"
 
-        diff = pricing.diff_pct(item.unit_price_idr, ref)
+        diff = pricing.diff_pct(line.unit_price_idr, ref)
         band = pricing.get_price_status(diff)
 
         offers = [
-            {"title": l.title, "url": l.url, "seller": l.seller, "price_idr": l.price_idr}
-            for l in kept
+            {"title": k.title, "url": k.url, "seller": k.seller, "price_idr": k.price_idr}
+            for k in kept
         ]
         if offers:
-            # Cache them so the to-queue re-check reuses these quotes.
-            _save_quotes(normalize_name(item.name), item.search_query[:255], offers, session)
+            # Cache them (per-unit prices) so the to-queue re-check reuses them.
+            _save_quotes(normalize_name(line.name), line.search_query[:255], offers, session)
 
         q.lines.append(
             QuotationLine(
                 line_no=line_no,
-                name=item.name[:255],
-                qty=item.qty,
-                unit=item.unit,
-                unit_price_idr=item.unit_price_idr,
-                line_total_idr=item.line_total_idr,
+                name=line.name[:255],
+                qty=line.qty,
+                unit=line.unit,
+                unit_price_idr=line.unit_price_idr,
+                line_total_idr=line.line_total_idr,
                 item_id=matched.id if matched is not None else None,
                 reference_unit_price_idr=ref,
                 reference_source=source,
@@ -162,16 +151,19 @@ def check_quotation(q: Quotation, text: str, session: Session) -> None:
                 diff_pct=diff,
                 band=band,
                 recommendation=pricing.recommend(band, diff),
-                search_query=item.search_query[:500],
-                evidence=offers,
+                search_query=line.search_query[:500],
+                evidence=[
+                    {**o, "listing_price_idr": k.listing_price_idr, "pack_qty": k.pack_qty, "match": k.match}
+                    for o, k in zip(offers, kept)
+                ],
                 dropped=[
                     {"title": d.title, "url": d.url, "price_idr": d.price_idr, "reason": d.reason}
-                    for d in guarded.dropped
+                    for d in line.dropped
                 ],
             )
         )
         score_lines.append(
-            pricing.ScoreLine(band, item.qty, item.unit_price_idr, item.line_total_idr)
+            pricing.ScoreLine(band, line.qty, line.unit_price_idr, line.line_total_idr)
         )
 
     score = pricing.vendor_score(score_lines, maker.quote_total_idr)

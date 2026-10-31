@@ -1,12 +1,12 @@
 """
-Web price check (maker_agent, MODE: ITEMS).
+Web price check (maker_agent, MODE: BON).
 
 get_web_quotes(raw_name, session) returns the list of WebQuote ORM objects
 for the given item name.
 
 Cache lookup: reuse web_quotes rows whose item_key matches (exactly or via
 token_set_ratio ≥ MATCH_THRESHOLD) and that are at most WEB_QUOTE_MAX_AGE_DAYS
-old.  If none exist, call the maker_agent flow in MODE: ITEMS, keep only the
+old.  If none exist, call the maker_agent flow in MODE: BON, keep only the
 listings that pass the evidence guards (URL and price found in serper_raw),
 keep at most 5, and save them with item_key set.
 
@@ -27,11 +27,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.flows.contracts import MAKER_OUT, SERPER_RAW_OUT, MakerOut, parse_flow_json
 from app.models import WebQuote
 from app.security import safe_http_url
-from app.services.evidence import SerperResult, guard_listings, parse_serper_raw
-from app.services.langflow_client import LangflowError, pick_output, run_flow
+from app.services.langflow_client import LangflowError
+from app.services.maker import call_maker, items_input
 from app.services.matcher import normalize_name
 
 logger = logging.getLogger(__name__)
@@ -44,14 +43,9 @@ def _cache_key(raw_name: str) -> str:
     return normalize_name(raw_name)
 
 
-def maker_input(mode: str, text: str) -> str:
-    """Wrap *text* for maker_agent; everything inside <document> is data."""
-    return f"MODE: {mode}\n<document>\n{text}\n</document>"
-
-
 def _flow_input(raw_name: str) -> str:
-    """Return the MODE: ITEMS input for one item (the flow builds the site: query)."""
-    return maker_input("ITEMS", f"1. {normalize_name(raw_name)}")
+    """Return the maker_agent input for one item (MODE BON: a name, no price)."""
+    return items_input([normalize_name(raw_name)])
 
 
 def _fetch_cached(item_key: str, session: Session) -> list[WebQuote]:
@@ -82,44 +76,20 @@ def _fetch_cached(item_key: str, session: Session) -> list[WebQuote]:
     return matched
 
 
-async def call_maker(flow_input: str) -> tuple[MakerOut, list[SerperResult]]:
-    """
-    Run maker_agent and return (parsed maker_json, search results from serper_raw).
-
-    maker_json gets one repair retry; a missing serper_raw yields no search
-    results, so the evidence guards drop every listing.  Raises LangflowError
-    (FlowContractError included) on failure.
-    """
-    flow_id = settings.LANGFLOW_MAKER_FLOW_ID
-    if not flow_id:
-        raise LangflowError("LANGFLOW_MAKER_FLOW_ID is not set")
-
-    outputs = await run_flow(flow_id, flow_input)
-
-    async def rerun(hint: str) -> str:
-        nonlocal outputs
-        outputs = await run_flow(flow_id, f"{flow_input}\n\n{hint}")
-        return pick_output(outputs, MAKER_OUT)
-
-    maker = await parse_flow_json(pick_output(outputs, MAKER_OUT), MakerOut, rerun)
-    return maker, parse_serper_raw(outputs.get(SERPER_RAW_OUT))
-
-
 def _call_flow(flow_input: str) -> list[dict]:
     """
-    Call maker_agent (MODE: ITEMS) synchronously and return the listings that
+    Call maker_agent (MODE: BON) synchronously and return the listings that
     pass the evidence guards, as offer dicts.  Raises on failure; callers
     must handle it.
     """
-    maker, results = asyncio.run(call_maker(flow_input))
+    result = asyncio.run(call_maker(flow_input))
     offers: list[dict] = []
     dropped = 0
-    for item in maker.items:
-        guarded = guard_listings(item.listings, results)
-        dropped += len(guarded.dropped)
+    for line in result.lines:
+        dropped += len(line.dropped)
         offers.extend(
             {"title": l.title, "url": l.url, "seller": l.seller, "price_idr": l.price_idr}
-            for l in guarded.kept
+            for l in line.kept
         )
     if dropped:
         logger.info("maker_agent: %d listing(s) dropped by evidence guards", dropped)
@@ -196,7 +166,7 @@ def get_web_quotes(raw_name: str, session: Session) -> tuple[list[WebQuote], str
     Return (quotes, error_message) for *raw_name*.
 
     Tries cached quotes first (fuzzy name match within WEB_QUOTE_MAX_AGE_DAYS).
-    If none exist, calls the maker_agent flow (MODE: ITEMS).
+    If none exist, calls the maker_agent flow (MODE: BON).
 
     On Langflow failure: returns whatever stale quotes exist plus an error string.
     The caller decides whether to treat this as fatal (check_error) or silent.

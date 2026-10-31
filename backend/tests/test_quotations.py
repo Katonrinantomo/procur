@@ -1,13 +1,15 @@
 """
-Tests for the vendor quotation check (M18): upload, extraction, evidence
-guards, Python-computed band/recommendation/score, and to-queue.
+Tests for the vendor quotation check (M18): upload, extraction, the
+extract + evidence join, evidence guards, Python-computed band /
+recommendation / score, and to-queue.
 
-maker_agent is mocked (app.services.quotation.call_maker); nothing calls
-Langflow.
+maker_agent's Langflow call is mocked (app.services.maker.run_flow) with
+the flow's three outputs; nothing calls Langflow.
 """
 from __future__ import annotations
 
 import io
+import json
 import os
 from unittest.mock import AsyncMock, patch
 
@@ -18,10 +20,8 @@ os.environ.setdefault("JWT_SECRET", "test-secret-key-for-procur-ai-tests-32chars
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.flows.contracts import MakerOut  # noqa: E402
 from app.main import app  # noqa: E402
 from app.security import create_access_token, limiter  # noqa: E402
-from app.services.evidence import SerperResult  # noqa: E402
 from app.services.langflow_client import LangflowError  # noqa: E402
 from app.services.quotation import extract_text  # noqa: E402
 
@@ -42,6 +42,12 @@ def _reset_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def _maker_flow_id(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "LANGFLOW_MAKER_FLOW_ID", "maker-test")
 
 
 def _pdf_bytes(text_lines: list[str]) -> bytes:
@@ -85,49 +91,65 @@ def _xlsx_bytes() -> bytes:
 
 PDF = _pdf_bytes(["PENAWARAN HARGA Q-001", "1. Sarung tangan nitril biru 10 box @ Rp 520.000"])
 
-# Three real listings for the web reference, one fabricated, one off-item.
-SERPER = [
-    SerperResult(url=TOKO, title="Sarung Tangan Nitril Biru Rp480.000", snippet=""),
-    SerperResult(url=SHOPEE, title="Sarung tangan nitril biru", snippet="Harga Rp 500.000 per yard"),
-    SerperResult(url=LAZADA, title="Nitril biru premium 520rb", snippet=""),
-]
+# Serper Multi Search output for line 1: three real product results.
+SERPER_RAW = json.dumps([{"line_no": 1, "search_query": "sarung tangan nitril biru", "error": None, "results": [
+    {"title": "Sarung Tangan Nitril Biru Rp480.000", "link": TOKO, "page_type": "product",
+     "snippet": "", "price": None},
+    {"title": "Sarung tangan nitril biru", "link": SHOPEE, "page_type": "product",
+     "snippet": "Harga Rp 500.000 per box", "price": None},
+    {"title": "Nitril biru premium", "link": LAZADA, "page_type": "product",
+     "snippet": "", "price": "520rb"},
+]}])
 
 
-def _maker(extra_item_fields: dict | None = None, quote_total: int | None = 5_200_000) -> MakerOut:
-    item = {
-        "line_no": 1,
-        "name": "Sarung tangan nitril biru",
-        "qty": 10,
-        "unit": "box",
-        "unit_price_idr": 520_000,
-        "line_total_idr": 5_200_000,
-        "search_query": "harga sarung tangan nitril biru",
-        "listings": [
-            {"title": "Sarung Tangan Nitril Biru", "url": TOKO, "price_idr": 480_000, "matches_item": True},
-            {"title": "Sarung tangan nitril biru", "url": SHOPEE, "price_idr": 500_000, "matches_item": True},
-            {"title": "Nitril biru premium", "url": LAZADA, "price_idr": 520_000, "matches_item": True},
-            {"title": "Made up", "url": FAKE, "price_idr": 100_000, "matches_item": True},
-        ],
-        **(extra_item_fields or {}),
+def _extract(quote_total: int | None = 5_200_000) -> dict:
+    return {
+        "mode": "PENAWARAN",
+        "vendor": {"name": "CV Nitril Jaya", "doc_number": "Q-001", "doc_date": "30-10-2026",
+                   "payment_terms": None},
+        "currency": "IDR",
+        "items": [{
+            "line_no": 1, "name_as_written": "Sarung tangan nitril biru", "brand": None,
+            "spec": None, "qty": 10, "unit": "box", "unit_price": 520_000,
+            "line_total": 5_200_000, "division": None,
+            "search_query": "sarung tangan nitril biru",
+        }],
+        "document_total": quote_total,
+        "extraction_notes": [],
     }
-    return MakerOut.model_validate({
-        "mode": "QUOTE",
-        "vendor": {"name": "CV Nitril Jaya", "quote_no": "Q-001", "date": "2026-10-30"},
-        "items": [item],
-        "quote_total_idr": quote_total,
-    })
 
 
-def _upload(content: bytes = PDF, name: str = "q.pdf", maker: MakerOut | None = None, role="purchasing"):
-    with patch(
-        "app.services.quotation.call_maker",
-        new=AsyncMock(return_value=(maker or _maker(), SERPER)),
-    ):
-        return client.post(
-            "/api/quotations",
-            files={"file": (name, content, "application/octet-stream")},
-            headers=_headers(role, {"purchasing": 1, "owner": 2, "finance": 3}[role]),
-        )
+def _evidence() -> dict:
+    def m(url, price, title):
+        return {"url": url, "title": title, "marketplace": "tokopedia", "price": price,
+                "price_text": None, "pack_qty": None, "match": "exact", "reason": "Sama"}
+    return {"items": [{"line_no": 1, "note": None, "matches": [
+        m(TOKO, 480_000, "Sarung Tangan Nitril Biru"),
+        m(SHOPEE, 500_000, "Sarung tangan nitril biru"),
+        m(LAZADA, 520_000, "Nitril biru premium"),
+        m(FAKE, 100_000, "Made up"),
+    ]}]}
+
+
+def _outputs(extract: dict | None = None, evidence: dict | None = None, serper: str = SERPER_RAW) -> dict:
+    return {
+        "extract_json": json.dumps(extract or _extract()),
+        "maker_json": json.dumps(evidence or _evidence()),
+        "serper_raw": serper,
+    }
+
+
+def _post(content: bytes = PDF, name: str = "q.pdf", role: str = "purchasing"):
+    return client.post(
+        "/api/quotations",
+        files={"file": (name, content, "application/octet-stream")},
+        headers=_headers(role, {"purchasing": 1, "owner": 2, "finance": 3}[role]),
+    )
+
+
+def _upload(content: bytes = PDF, name: str = "q.pdf", outputs: dict | None = None, role="purchasing"):
+    with patch("app.services.maker.run_flow", new=AsyncMock(return_value=outputs or _outputs())):
+        return _post(content, name, role)
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +188,17 @@ class TestUpload:
         assert body["arithmetic_ok"] is True
         assert (body["covered_lines"], body["total_lines"]) == (1, 1)
 
+    def test_vendor_fields_and_date_parsed(self, seeded_db):
+        body = _upload().json()
+        assert (body["quote_no"], body["quote_date"]) == ("Q-001", "2026-10-30")
+        assert body["quote_total_idr"] == 5_200_000
+
+    def test_flow_input_format(self, seeded_db):
+        run = AsyncMock(return_value=_outputs())
+        with patch("app.services.maker.run_flow", new=run):
+            _post(PDF, "q.pdf")
+        assert run.call_args.args[1].startswith("MODE: PENAWARAN\nFILE: q.pdf\n---\n")
+
     def test_fabricated_listing_dropped(self, seeded_db):
         body = _upload().json()
         line = body["lines"][0]
@@ -176,17 +209,50 @@ class TestUpload:
         assert body["dropped_summary"] == {"tidak ada di hasil pencarian": 1}
 
     def test_model_extra_keys_cannot_set_band_or_score(self, seeded_db):
-        maker = _maker()
         # Even if the model tried to send its own verdict, it is ignored.
-        data = maker.model_dump()
-        data["items"][0]["band"] = "KOMPETITIF"
-        data["vendor_score"] = 100
-        body = _upload(maker=MakerOut.model_validate(data)).json()
+        extract, evidence = _extract(), _evidence()
+        extract["vendor_score"] = 100
+        extract["items"][0]["band"] = "KOMPETITIF"
+        evidence["items"][0]["recommendation"] = "SETUJU"
+        body = _upload(outputs=_outputs(extract, evidence)).json()
         assert body["lines"][0]["band"] == "WAJAR"
         assert body["vendor_score"] == 88
 
+    def test_pack_qty_divided_in_python(self, seeded_db):
+        evidence = _evidence()
+        # The Lazada listing is a pack of 10 boxes at 5.2 jt -> 520.000 per box.
+        evidence["items"][0]["matches"][2].update(price=5_200_000, pack_qty=10)
+        serper = SERPER_RAW.replace('"520rb"', '"Rp5.200.000"')
+        line = _upload(outputs=_outputs(evidence=evidence, serper=serper)).json()["lines"][0]
+        kept = {e["url"]: e for e in line["evidence"]}
+        assert kept[LAZADA]["price_idr"] == 520_000
+        assert (kept[LAZADA]["listing_price_idr"], kept[LAZADA]["pack_qty"]) == (5_200_000, 10)
+        assert line["reference_unit_price_idr"] == 500_000
+
+    def test_missing_serper_raw_gives_no_reference(self, seeded_db):
+        line = _upload(outputs=_outputs(serper="")).json()["lines"][0]
+        assert line["evidence"] == []
+        assert line["reference_source"] == "none"
+        assert line["band"] == "UNKNOWN"
+
+    def test_repair_retry_then_checked(self, seeded_db):
+        bad = {**_outputs(), "extract_json": "not json"}
+        run = AsyncMock(side_effect=[bad, _outputs()])
+        with patch("app.services.maker.run_flow", new=run):
+            body = _post().json()
+        assert body["status"] == "checked"
+        assert run.call_count == 2
+        assert "Previous answer was invalid" in run.call_args.args[1]
+
+    def test_invalid_twice_leaves_pending(self, seeded_db):
+        bad = {**_outputs(), "maker_json": '{"items": "x"}'}
+        with patch("app.services.maker.run_flow", new=AsyncMock(return_value=bad)):
+            body = _post().json()
+        assert body["status"] == "pending"
+        assert body["check_error"]
+
     def test_arithmetic_mismatch_lowers_score(self, seeded_db):
-        body = _upload(maker=_maker(quote_total=5_300_000)).json()
+        body = _upload(outputs=_outputs(_extract(quote_total=5_300_000))).json()
         assert body["arithmetic_ok"] is False
         assert body["vendor_score"] == 68
 
@@ -218,14 +284,10 @@ class TestUpload:
 
     def test_langflow_failure_leaves_pending(self, seeded_db):
         with patch(
-            "app.services.quotation.call_maker",
+            "app.services.maker.run_flow",
             new=AsyncMock(side_effect=LangflowError("connection refused")),
         ):
-            resp = client.post(
-                "/api/quotations",
-                files={"file": ("q.pdf", PDF, "application/pdf")},
-                headers=_headers(),
-            )
+            resp = _post()
         assert resp.status_code == 201
         body = resp.json()
         assert body["status"] == "pending"
@@ -292,37 +354,28 @@ class TestToQueue:
 
 
 # ---------------------------------------------------------------------------
-# MODE: ITEMS (web_check._call_flow) also goes through the guards
+# Item names (web_check._call_flow, MODE: BON) also go through the guards
 # ---------------------------------------------------------------------------
 
 class TestItemsMode:
-    def test_call_flow_returns_only_guarded_listings(self, monkeypatch):
-        import json
-
-        from app.config import settings
+    def test_call_flow_returns_only_guarded_listings(self):
         from app.services import web_check
 
-        monkeypatch.setattr(settings, "LANGFLOW_MAKER_FLOW_ID", "maker-test")
-        maker = _maker().model_dump()
-        maker["mode"] = "ITEMS"
-        serper = json.dumps({"organic": [
-            {"title": r.title, "link": r.url, "snippet": r.snippet} for r in SERPER
-        ]})
-        run = AsyncMock(return_value={"maker_json": json.dumps(maker), "serper_raw": serper})
-        with patch("app.services.web_check.run_flow", new=run):
+        run = AsyncMock(return_value=_outputs())
+        with patch("app.services.maker.run_flow", new=run):
             offers = web_check._call_flow(web_check._flow_input("Sarung tangan nitril biru"))
 
         assert {o["url"] for o in offers} == {TOKO, SHOPEE, LAZADA}
-        sent = run.call_args.args[1]
-        assert sent.startswith("MODE: ITEMS\n<document>\n")
+        assert run.call_args.args[1].startswith("MODE: BON\nFILE: items.txt\n---\n1. ")
 
-    def test_missing_serper_raw_drops_everything(self, monkeypatch):
-        import json
-
-        from app.config import settings
+    def test_missing_serper_raw_drops_everything(self):
         from app.services import web_check
 
-        monkeypatch.setattr(settings, "LANGFLOW_MAKER_FLOW_ID", "maker-test")
-        run = AsyncMock(return_value={"maker_json": _maker().model_dump_json(), "other": "x"})
-        with patch("app.services.web_check.run_flow", new=run):
-            assert web_check._call_flow("MODE: ITEMS") == []
+        outputs = {k: v for k, v in _outputs().items() if k != "serper_raw"}
+        with patch("app.services.maker.run_flow", new=AsyncMock(return_value=outputs)):
+            assert web_check._call_flow("MODE: BON") == []
+
+    def test_quote_input_strips_newlines_from_filename(self):
+        from app.services.maker import quote_input
+
+        assert quote_input("a\nb.pdf", "TEXT") == "MODE: PENAWARAN\nFILE: a b.pdf\n---\nTEXT"

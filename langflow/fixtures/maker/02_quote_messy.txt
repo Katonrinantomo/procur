@@ -1,5 +1,6 @@
-MODE: QUOTE
-<document>
+MODE: PENAWARAN
+FILE: SPH-2026-10-118.pdf
+---
 CV SUMBER TEKNIK MANDIRI
 Jl. Raya Industri No. 12, Cikarang
 SURAT PENAWARAN HARGA   No: SPH/2026/10/118   Tgl: 30-10-2026
@@ -12,4 +13,3 @@ No | Nama Barang                  | Qty | Sat  | Harga Satuan     | Jumlah
                                                PPN 11%            Rp 473.000
                                                TOTAL              Rp 4.773.000
 Harga berlaku 14 hari. Franco Cikarang.
-</document>

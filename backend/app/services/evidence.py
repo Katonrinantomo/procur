@@ -1,15 +1,18 @@
 """
 Evidence guards for maker_agent listings.
 
-The model reports listings (title, url, price) it says it found in the
-search results.  Python keeps a listing only if:
+The evidence model reports listings (url, title, price) it says it found in
+the search results for an item.  Python keeps a listing only if:
 
   1. its URL is a safe http(s) URL,
-  2. that URL appears in the raw Serper output (serper_raw), and
-  3. its price appears in that search result's title or snippet.
+  2. that URL appears in serper_raw among the results for the same line_no,
+  3. that result is a product page, not a marketplace search page, and
+  4. its price appears in that result's title, snippet or price field.
 
-Listings the model marks matches_item=false are dropped too.  Everything
-here is pure: no database, no network.  Money is integer rupiah only.
+A kept listing's per-unit price is the listing price divided by pack_qty
+(when the model says one listing holds several of the item's unit),
+rounded to whole rupiah.  Everything here is pure: no database, no
+network.  Money is integer rupiah only.
 """
 from __future__ import annotations
 
@@ -17,19 +20,21 @@ import json
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from typing import Any
 from urllib.parse import urlparse
 
-from app.flows.contracts import MakerListing, strip_fences
+from app.flows.contracts import EvidenceMatch, strip_fences
 from app.security import safe_http_url
 
 # Reason code -> Indonesian label shown in the UI.
 DROP_REASONS: dict[str, str] = {
     "bad_url": "URL tidak valid",
     "url_not_in_search": "tidak ada di hasil pencarian",
+    "search_page": "halaman pencarian, bukan produk",
+    "no_price": "harga tidak tercantum",
     "price_not_in_result": "harga tidak ada di hasil pencarian",
-    "not_matching_item": "barang tidak cocok",
-    "bad_price": "harga tidak valid",
+    "bad_pack_qty": "isi kemasan tidak jelas",
 }
 
 
@@ -38,19 +43,31 @@ class SerperResult:
     url: str
     title: str = ""
     snippet: str = ""
+    page_type: str = "product"
+
+
+@dataclass(frozen=True)
+class KeptListing:
+    title: str
+    url: str
+    seller: str | None       # marketplace name
+    price_idr: int            # per item unit, after pack_qty
+    listing_price_idr: int    # as shown on the listing
+    pack_qty: int | None
+    match: str                # exact | close
 
 
 @dataclass(frozen=True)
 class DroppedListing:
     title: str
     url: str
-    price_idr: int
+    price_idr: int | None
     reason: str
 
 
 @dataclass
 class GuardResult:
-    kept: list[MakerListing] = field(default_factory=list)
+    kept: list[KeptListing] = field(default_factory=list)
     dropped: list[DroppedListing] = field(default_factory=list)
 
 
@@ -59,40 +76,48 @@ class GuardResult:
 # ---------------------------------------------------------------------------
 
 def _text(value: Any) -> str:
-    return value if isinstance(value, str) else ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int) or (isinstance(value, float) and value.is_integer()):
+        return str(int(value))
+    return ""
 
 
-def _walk(node: Any, out: list[SerperResult]) -> None:
-    if isinstance(node, dict):
-        url = node.get("link") or node.get("url")
-        if isinstance(url, str) and ("title" in node or "snippet" in node):
-            # Serper shopping results carry the price in its own field.
-            snippet = " ".join(
-                part for part in (_text(node.get("snippet")), _text(node.get("price"))) if part
-            )
-            out.append(SerperResult(url=url, title=_text(node.get("title")), snippet=snippet))
-        for value in node.values():
-            _walk(value, out)
-    elif isinstance(node, list):
-        for value in node:
-            _walk(value, out)
+def _result(node: dict) -> SerperResult | None:
+    url = node.get("link") or node.get("url")
+    if not isinstance(url, str):
+        return None
+    # The price field ("Rp125.000" or a number) is searched with the snippet.
+    snippet = " ".join(p for p in (_text(node.get("snippet")), _text(node.get("price"))) if p)
+    page_type = node.get("page_type") if node.get("page_type") == "search_page" else "product"
+    return SerperResult(url=url, title=_text(node.get("title")), snippet=snippet, page_type=page_type)
 
 
-def parse_serper_raw(text: str | None) -> list[SerperResult]:
-    """Collect every search result (url + title/snippet) in the raw output.
+def parse_serper_groups(text: str | None) -> dict[int, list[SerperResult]]:
+    """line_no -> search results, from Serper Multi Search's grouped output.
 
-    Accepts a single Serper response, a list of them (Multi Search), or
-    either one wrapped in code fences.  Unparseable text returns [].
+    Expects [{"line_no": 1, "results": [{title, link, snippet, price,
+    page_type}, ...]}, ...], optionally in code fences.  Anything else
+    returns {} so every listing is dropped.
     """
     if not text:
-        return []
+        return {}
     try:
         data = json.loads(strip_fences(text))
     except (ValueError, TypeError):
-        return []
-    out: list[SerperResult] = []
-    _walk(data, out)
-    return out
+        return {}
+    if not isinstance(data, list):
+        return {}
+    groups: dict[int, list[SerperResult]] = {}
+    for group in data:
+        if not isinstance(group, dict) or not isinstance(group.get("line_no"), int):
+            continue
+        results = group.get("results")
+        if not isinstance(results, list):
+            continue
+        parsed = [r for r in (_result(n) for n in results if isinstance(n, dict)) if r]
+        groups.setdefault(group["line_no"], []).extend(parsed)
+    return groups
 
 
 # ---------------------------------------------------------------------------
@@ -142,40 +167,65 @@ def price_in_text(price_idr: int, text: str) -> bool:
     return price_idr in prices_in_text(text)
 
 
+def per_unit_price(price_idr: int, pack_qty: float | None) -> int | None:
+    """Listing price per item unit, rounded half up to whole rupiah.
+
+    None pack_qty means one listing is one unit.  A pack_qty that is not a
+    positive whole number returns None.
+    """
+    if pack_qty is None:
+        return price_idr
+    if pack_qty <= 0 or not float(pack_qty).is_integer():
+        return None
+    n = int(pack_qty)
+    return int(Fraction(price_idr, n) + Fraction(1, 2))
+
+
 # ---------------------------------------------------------------------------
 # Guard
 # ---------------------------------------------------------------------------
 
-def guard_listings(listings: list[MakerListing], results: list[SerperResult]) -> GuardResult:
-    """Split *listings* into kept and dropped (with a reason code)."""
+def guard_listings(matches: list[EvidenceMatch], results: list[SerperResult]) -> GuardResult:
+    """Split one item's *matches* into kept and dropped, given that item's
+    search results."""
     by_url: dict[str, list[SerperResult]] = {}
     for r in results:
         by_url.setdefault(normalize_url(r.url), []).append(r)
 
     out = GuardResult()
-    for listing in listings:
+    for m in matches:
         def drop(reason: str) -> None:
-            out.dropped.append(
-                DroppedListing(listing.title, listing.url, listing.price_idr, reason)
-            )
+            out.dropped.append(DroppedListing(m.title, m.url, m.price, reason))
 
-        if listing.price_idr <= 0:
-            drop("bad_price")
-            continue
-        if safe_http_url(listing.url) is None:
+        if safe_http_url(m.url) is None:
             drop("bad_url")
             continue
-        matches = by_url.get(normalize_url(listing.url))
-        if not matches:
+        found = by_url.get(normalize_url(m.url))
+        if not found:
             drop("url_not_in_search")
             continue
-        if not any(price_in_text(listing.price_idr, f"{r.title} {r.snippet}") for r in matches):
+        if all(r.page_type == "search_page" for r in found):
+            drop("search_page")
+            continue
+        if m.price is None or m.price <= 0:
+            drop("no_price")
+            continue
+        if not any(price_in_text(m.price, f"{r.title} {r.snippet}") for r in found):
             drop("price_not_in_result")
             continue
-        if not listing.matches_item:
-            drop("not_matching_item")
+        unit_price = per_unit_price(m.price, m.pack_qty)
+        if unit_price is None or unit_price <= 0:
+            drop("bad_pack_qty")
             continue
-        out.kept.append(listing)
+        out.kept.append(KeptListing(
+            title=m.title,
+            url=m.url,
+            seller=m.marketplace,
+            price_idr=unit_price,
+            listing_price_idr=m.price,
+            pack_qty=int(m.pack_qty) if m.pack_qty is not None else None,
+            match=m.match,
+        ))
     return out
 
 

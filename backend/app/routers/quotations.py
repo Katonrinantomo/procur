@@ -2,7 +2,7 @@
 Vendor quotations (M18).
 
 POST /api/quotations                — upload a PDF/XLSX quotation (purchasing),
-                                      extract text, run maker_agent MODE: QUOTE,
+                                      extract text, run maker_agent MODE: PENAWARAN,
                                       store lines with band/recommendation/score.
 GET  /api/quotations                — 20 most recent quotations.
 GET  /api/quotations/{id}           — one quotation with its lines.
@@ -57,7 +57,7 @@ def _to_out(q: Quotation) -> QuotationOut:
             label = DROP_REASONS.get(d.get("reason", ""), d.get("reason", ""))
             summary[label] = summary.get(label, 0) + 1
             dropped.append(QuoteDroppedOut(
-                title=d.get("title"), url=d.get("url"), price_idr=d.get("price_idr", 0),
+                title=d.get("title"), url=d.get("url"), price_idr=d.get("price_idr"),
                 reason=d.get("reason", ""), reason_label=label,
             ))
         lines.append(QuotationLineOut(
