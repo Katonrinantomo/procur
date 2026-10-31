@@ -111,6 +111,7 @@ class RequestItemDetail(BaseModel):
     quoting_supplier_name: Optional[str]
     reference_unit_price_idr: Optional[int]
     diff_pct: Optional[float]
+    price_status: str = "UNKNOWN"
     checked_via: Optional[str]
     history_count: Optional[int]
     usual_qty: Optional[int]         # median past purchase qty (for QTY_UNUSUAL detail)

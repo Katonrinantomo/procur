@@ -77,3 +77,14 @@ def diff_pct(quoted: int | None, reference: int | None) -> float | None:
     if quoted is None or reference is None or reference == 0:
         return None
     return round((quoted - reference) / reference * 100, 1)
+
+
+def get_price_status(diff_pct: float | None) -> str:
+    """Classify the percentage difference from the reference price."""
+    if diff_pct is None:
+        return "UNKNOWN"
+    if diff_pct <= 5.0:
+        return "WAJAR"
+    if diff_pct <= 15.0:
+        return "PERHATIAN"
+    return "TIDAK WAJAR"

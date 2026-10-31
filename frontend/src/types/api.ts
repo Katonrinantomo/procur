@@ -85,6 +85,7 @@ export interface RequestItemDetail {
   quoting_supplier_name: string | null
   reference_unit_price_idr: number | null
   diff_pct: number | null
+  price_status?: string
   checked_via: string | null
   history_count: number | null
   usual_qty: number | null

@@ -4,6 +4,7 @@ Shared security utilities for Procur.AI backend.
 from __future__ import annotations
 
 import ipaddress
+import re
 from urllib.parse import urlparse
 
 from slowapi import Limiter
@@ -17,6 +18,11 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 # Rate limit string for LLM-touching endpoints (10 requests per minute per IP).
 RATE_LLM = "10/minute"
+
+
+def mask_pii(text: str) -> str:
+    """Mask words longer than three characters, keeping their first letter."""
+    return re.sub(r"\b\w{4,}\b", lambda match: match[0][0] + "*" * (len(match[0]) - 1), text)
 
 
 def safe_http_url(url: str | None) -> str | None:

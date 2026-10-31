@@ -27,8 +27,9 @@ from app.schemas import (AuditLogOut,
     ReturnIn,
     WebQuoteOut,
 )
-from app.security import limiter, RATE_LLM
+from app.security import limiter, mask_pii, RATE_LLM
 from app.services.checker import check_item
+from app.services.pricing import get_price_status
 
 router = APIRouter()
 
@@ -168,6 +169,8 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
             created_at=audit_row.created_at,
         )
 
+    diff_pct = float(ri.diff_pct) if ri.diff_pct is not None else None
+
     return RequestItemDetail(
         id=ri.id,
         request_id=ri.request_id,
@@ -178,9 +181,14 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         qty=ri.qty,
         unit=ri.unit,
         quoted_unit_price_idr=ri.quoted_unit_price_idr,
-        quoting_supplier_name=ri.quoting_supplier_name,
+        quoting_supplier_name=(
+            mask_pii(ri.quoting_supplier_name)
+            if ri.quoting_supplier_name is not None
+            else None
+        ),
         reference_unit_price_idr=ri.reference_unit_price_idr,
-        diff_pct=float(ri.diff_pct) if ri.diff_pct is not None else None,
+        diff_pct=diff_pct,
+        price_status=get_price_status(diff_pct),
         checked_via=ri.checked_via,
         history_count=ri.history_count,
         usual_qty=usual_qty,

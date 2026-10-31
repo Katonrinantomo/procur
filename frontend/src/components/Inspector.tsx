@@ -141,8 +141,30 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
             </div>
             <div>
               <dt style={{ fontSize: 12, color: '#6B6B66' }}>At reference price</dt>
-              <dd style={{ margin: '2px 0 0', fontFamily: "'Geist Mono', monospace" }}>
+              <dd style={{ margin: '2px 0 0', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center' }}>
                 {detail.reference_total_idr != null ? formatRupiahWithPrefix(detail.reference_total_idr) : '—'}
+                {detail.price_status && detail.price_status !== 'UNKNOWN' && (() => {
+                  const styles = {
+                    'WAJAR': { bg: '#E7F4EC', text: '#166534' },
+                    'PERHATIAN': { bg: '#FFF4EC', text: '#9A3412' },
+                    'TIDAK WAJAR': { bg: '#FDEBDD', text: '#9A3412' },
+                  }
+                  const style = styles[detail.price_status as keyof typeof styles]
+                  return style ? (
+                    <span style={{
+                      marginLeft: 8,
+                      padding: '2px 6px',
+                      fontSize: 12,
+                      borderRadius: 4,
+                      background: style.bg,
+                      color: style.text,
+                      fontFamily: 'inherit',
+                      fontWeight: 500,
+                    }}>
+                      {detail.price_status}
+                    </span>
+                  ) : null
+                })()}
               </dd>
             </div>
             <div>
@@ -152,8 +174,32 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
                 fontFamily: "'Geist Mono', monospace",
                 color: detail.over_reference_idr != null && detail.over_reference_idr > 0 ? '#9A3412' : undefined,
                 fontWeight: detail.over_reference_idr != null && detail.over_reference_idr > 0 ? 500 : undefined,
+                display: 'flex',
+                alignItems: 'center',
               }}>
                 {detail.over_reference_idr != null ? formatRupiahWithPrefix(detail.over_reference_idr) : '—'}
+                {detail.price_status && detail.price_status !== 'UNKNOWN' && (() => {
+                  const styles = {
+                    'WAJAR': { bg: '#E7F4EC', text: '#166534' },
+                    'PERHATIAN': { bg: '#FFF4EC', text: '#9A3412' },
+                    'TIDAK WAJAR': { bg: '#FDEBDD', text: '#9A3412' },
+                  }
+                  const style = styles[detail.price_status as keyof typeof styles]
+                  return style ? (
+                    <span style={{
+                      marginLeft: 8,
+                      padding: '2px 6px',
+                      fontSize: 12,
+                      borderRadius: 4,
+                      background: style.bg,
+                      color: style.text,
+                      fontFamily: 'inherit',
+                      fontWeight: 500,
+                    }}>
+                      {detail.price_status}
+                    </span>
+                  ) : null
+                })()}
               </dd>
             </div>
             <div>
