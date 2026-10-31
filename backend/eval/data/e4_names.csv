@@ -1,0 +1,11 @@
+# EXAMPLE DATA, not a measurement: eight names to show the schema. The plan calls for 40 request names vs the catalog, including short ones like "valve".
+# expected_item = exact catalog item name (see app/seed.py CATALOG); leave it blank when the name must NOT match anything.
+request_name,expected_item,note
+laher 6205,Bearing 6205 ZZ,local word for bearing
+bearing 6206zz,Bearing 6206 ZZ,
+oli hidrolik 46,"Hydraulic oil ISO VG 46, 20L",alias without the drum size
+kertas a4 80gr,"A4 paper 80gsm, 1 ream",
+wd40,Penetrating oil WD-40 450ml,brand name only
+valve,,too short: must not match
+bearing,,ambiguous between 6205 and 6206: must not match
+solenoid valve 24V,,not in the catalog

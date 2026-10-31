@@ -16,3 +16,7 @@ backend/.pytest_cache/
 
 # Last python -m app.flowcheck result (read by /api/health/flows)
 backend/.flowcheck_last.json
+
+# Coverage output (scripts/release_check.ps1)
+backend/.coverage
+backend/coverage.json

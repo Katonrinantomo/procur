@@ -1,0 +1,335 @@
+{
+  "meta": {
+    "run_at": "2026-10-31T22:00:55+07:00",
+    "git_commit": "2018f1b",
+    "flow_models": {
+      "Maker.json": [
+        "Anthropic: claude-haiku-5-5"
+      ],
+      "Organize.json": [
+        "OpenAI Compatible: langflow"
+      ],
+      "Web Check.json": [
+        "OpenAI Compatible: langflow"
+      ]
+    },
+    "flow_sha256": {
+      "Maker.json": "242ce2da2c9d50a6b21bfc8ae2f47369832f4eda8dce7b8a088b4aab3c0e439a",
+      "Organize.json": "d656c49495a26846cc8d0ccc0e07acf55cae577186dd245327d7615d943ee43d",
+      "Web Check.json": "fb673e591597c7c1299a1152e0709fe29fcce34a2e5207a94f2cdd9b2b40c040"
+    }
+  },
+  "suites": {
+    "E1": {
+      "status": "ok",
+      "data": "eval/data/e1/ground_truth.json",
+      "summary": {
+        "Messages scored": "3/3",
+        "Ground-truth rows": 5,
+        "Price exact match (rows with a price)": "100.0% (3/3)",
+        "Rows missed": 0,
+        "Rows invented": 0
+      },
+      "tables": [
+        {
+          "title": "E1 accuracy per field (share of ground-truth rows)",
+          "columns": [
+            "Field",
+            "Correct",
+            "Rows",
+            "Accuracy %"
+          ],
+          "rows": [
+            [
+              "item",
+              1,
+              5,
+              20.0
+            ],
+            [
+              "qty",
+              5,
+              5,
+              100.0
+            ],
+            [
+              "unit",
+              5,
+              5,
+              100.0
+            ],
+            [
+              "price",
+              5,
+              5,
+              100.0
+            ],
+            [
+              "supplier",
+              5,
+              5,
+              100.0
+            ],
+            [
+              "department",
+              5,
+              5,
+              100.0
+            ]
+          ]
+        },
+        {
+          "title": "E1b flags that change because of misreading",
+          "columns": [
+            "Metric",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Flags on ground-truth rows",
+              4
+            ],
+            [
+              "Flags gained (parsed only)",
+              1
+            ],
+            [
+              "Flags lost (ground truth only)",
+              0
+            ],
+            [
+              "Rows whose flags changed",
+              "1/5"
+            ]
+          ]
+        }
+      ],
+      "metrics": {
+        "field_accuracy_pct": {
+          "item": 20.0,
+          "qty": 100.0,
+          "unit": 100.0,
+          "price": 100.0,
+          "supplier": 100.0,
+          "department": 100.0
+        },
+        "price_exact_pct": 100.0,
+        "rows_missed": 0,
+        "rows_invented": 0,
+        "e1b": {
+          "truth_flags": 4,
+          "flags_gained": 1,
+          "flags_lost": 0,
+          "rows_changed": 1
+        }
+      },
+      "details": {
+        "wa_01.txt": {
+          "status": "ok",
+          "parsed": [
+            {
+              "name": "Lubricating oil",
+              "qty": 4,
+              "unit": "drum",
+              "department": "Production",
+              "quoted_unit_price_idr": 1450000,
+              "supplier": "CV Sinar"
+            }
+          ],
+          "mismatches": [
+            "'oli'.item: expected 'oli', got 'Lubricating oil'"
+          ],
+          "flag_changes": []
+        },
+        "wa_02.txt": {
+          "status": "ok",
+          "parsed": [
+            {
+              "name": "Bearing SKF 6205",
+              "qty": 10,
+              "unit": "pcs",
+              "department": "Maintenance",
+              "quoted_unit_price_idr": 65000,
+              "supplier": "PT Bearindo"
+            },
+            {
+              "name": "Clear packing tape 2 inch",
+              "qty": 24,
+              "unit": "roll",
+              "department": "Maintenance",
+              "quoted_unit_price_idr": 18500,
+              "supplier": "Toko Maju Jaya"
+            }
+          ],
+          "mismatches": [
+            "'lakban bening 2 inch'.item: expected 'lakban bening 2 inch', got 'Clear packing tape 2 inch'"
+          ],
+          "flag_changes": [
+            "'lakban bening 2 inch': +['QTY_UNUSUAL'] -[]"
+          ]
+        },
+        "wa_03.txt": {
+          "status": "ok",
+          "parsed": [
+            {
+              "name": "Cotton gloves",
+              "qty": 5,
+              "unit": "doz",
+              "department": "Warehouse",
+              "quoted_unit_price_idr": null,
+              "supplier": null
+            },
+            {
+              "name": "Cloth face mask",
+              "qty": 200,
+              "unit": "pcs",
+              "department": "Warehouse",
+              "quoted_unit_price_idr": null,
+              "supplier": null
+            }
+          ],
+          "mismatches": [
+            "'sarung tangan katun'.item: expected 'sarung tangan katun', got 'Cotton gloves'",
+            "'masker kain'.item: expected 'masker kain', got 'Cloth face mask'"
+          ],
+          "flag_changes": []
+        }
+      }
+    },
+    "E2": {
+      "status": "ok",
+      "data": "eval/data/e2_rows.json (EXAMPLE DATA — not a measurement)",
+      "summary": {
+        "Rows": 8,
+        "Rows with a planted anomaly": 5,
+        "Rows where fired flags differ from expected": 0
+      },
+      "tables": [
+        {
+          "title": "E2 per flag",
+          "columns": [
+            "Flag",
+            "Expected",
+            "Detected",
+            "Detection %",
+            "False positives",
+            "False-positive %"
+          ],
+          "rows": [
+            [
+              "PRICE_ABOVE_REF",
+              2,
+              2,
+              100.0,
+              0,
+              0.0
+            ],
+            [
+              "STOCK_COVER_HIGH",
+              1,
+              1,
+              100.0,
+              0,
+              0.0
+            ],
+            [
+              "QTY_UNUSUAL",
+              1,
+              1,
+              100.0,
+              0,
+              0.0
+            ],
+            [
+              "NEW_SUPPLIER",
+              2,
+              2,
+              100.0,
+              0,
+              0.0
+            ]
+          ]
+        }
+      ],
+      "metrics": {
+        "PRICE_ABOVE_REF": {
+          "tp": 2,
+          "fn": 0,
+          "fp": 0,
+          "tn": 6,
+          "detection_pct": 100.0,
+          "false_positive_pct": 0.0
+        },
+        "STOCK_COVER_HIGH": {
+          "tp": 1,
+          "fn": 0,
+          "fp": 0,
+          "tn": 7,
+          "detection_pct": 100.0,
+          "false_positive_pct": 0.0
+        },
+        "QTY_UNUSUAL": {
+          "tp": 1,
+          "fn": 0,
+          "fp": 0,
+          "tn": 7,
+          "detection_pct": 100.0,
+          "false_positive_pct": 0.0
+        },
+        "NEW_SUPPLIER": {
+          "tp": 2,
+          "fn": 0,
+          "fp": 0,
+          "tn": 6,
+          "detection_pct": 100.0,
+          "false_positive_pct": 0.0
+        }
+      },
+      "details": {
+        "mismatched_rows": []
+      }
+    },
+    "E3": {
+      "status": "skipped",
+      "reason": "no hand-checked prices yet in eval/data/e3_prices.csv (10 item(s) listed, 0 with manual price, date and URL)"
+    },
+    "E4": {
+      "status": "ok",
+      "data": "eval/data/e4_names.csv (EXAMPLE DATA — not a measurement)",
+      "summary": {
+        "Names": 8,
+        "Wrong-match rate %": 12.5,
+        "Wrong item": 0,
+        "Matched when it should not": 1,
+        "Missed match % (falls back to web)": 0.0
+      },
+      "tables": [
+        {
+          "title": "E4 rows that did not match as expected",
+          "columns": [
+            "Request name",
+            "Expected",
+            "Got",
+            "Kind"
+          ],
+          "rows": [
+            [
+              "bearing",
+              "(no match)",
+              "Bearing 6205 ZZ",
+              "false_match"
+            ]
+          ]
+        }
+      ],
+      "metrics": {
+        "wrong_match_pct": 12.5,
+        "missed_pct": 0.0,
+        "ok": 7,
+        "wrong_item": 0,
+        "false_match": 1,
+        "missed": 0
+      }
+    }
+  }
+}

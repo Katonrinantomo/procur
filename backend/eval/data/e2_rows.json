@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "example": true,
+    "note": "EXAMPLE DATA, not a measurement. Eight rows written against the seeded demo catalog to show the schema; expected_flags here follow from the seed by construction. The plan calls for about 100 rows with about 20 planted anomalies across the four flags, labelled by a reviewer. Set example to false when the real set replaces these rows.",
+    "schema": {
+      "id": "unique row id",
+      "name": "item name as a requester would write it",
+      "qty": "int or null",
+      "unit": "string or null",
+      "quoted_unit_price_idr": "whole rupiah per unit, int or null",
+      "supplier": "quoting supplier name or null",
+      "expected_flags": "subset of PRICE_ABOVE_REF, STOCK_COVER_HIGH, QTY_UNUSUAL, NEW_SUPPLIER",
+      "note": "why the row is (not) an anomaly"
+    }
+  },
+  "rows": [
+    {"id": "ex01", "name": "laher 6205", "qty": 20, "unit": "pcs", "quoted_unit_price_idr": 38000, "supplier": "UD Teknik Makmur", "expected_flags": [], "note": "clean: price at the 3-buy average, usual qty, known supplier"},
+    {"id": "ex02", "name": "bearing 6205zz", "qty": 20, "unit": "pcs", "quoted_unit_price_idr": 52000, "supplier": "UD Teknik Makmur", "expected_flags": ["PRICE_ABOVE_REF"], "note": "price about 37% above the 3-buy average"},
+    {"id": "ex03", "name": "bearing 6205", "qty": 80, "unit": "pcs", "quoted_unit_price_idr": 38000, "supplier": "UD Teknik Makmur", "expected_flags": ["QTY_UNUSUAL"], "note": "qty about 4.6x the usual order"},
+    {"id": "ex04", "name": "sarung tangan katun dot", "qty": 10, "unit": "doz", "quoted_unit_price_idr": 98000, "supplier": "PT Global Safety", "expected_flags": [], "note": "clean"},
+    {"id": "ex05", "name": "sarung tangan katun dot", "qty": 10, "unit": "doz", "quoted_unit_price_idr": 98000, "supplier": "CV Contoh Baru", "expected_flags": ["NEW_SUPPLIER"], "note": "supplier with no purchase history"},
+    {"id": "ex06", "name": "oli hidrolik 46 20L", "qty": 4, "unit": "drum", "quoted_unit_price_idr": 1120000, "supplier": "PT Mitra Oli Jaya", "expected_flags": ["STOCK_COVER_HIGH"], "note": "stock already covers about 1.5 months"},
+    {"id": "ex07", "name": "selotip 48mm bening", "qty": 3, "unit": "box", "quoted_unit_price_idr": 205000, "supplier": "PT Berkat Abadi", "expected_flags": [], "note": "clean"},
+    {"id": "ex08", "name": "selotip 48mm bening", "qty": 3, "unit": "box", "quoted_unit_price_idr": 260000, "supplier": "Toko Contoh Lakban", "expected_flags": ["PRICE_ABOVE_REF", "NEW_SUPPLIER"], "note": "price about 27% above average from an unknown supplier"}
+  ]
+}

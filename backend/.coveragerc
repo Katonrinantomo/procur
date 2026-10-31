@@ -1,0 +1,18 @@
+# pytest-cov / coverage.py config.  Line coverage over the services layer;
+# add app/audit to source when the audit engine lands (M22).
+# scripts/release_check.ps1 adds --cov=app/audit automatically once it exists.
+#
+#   pytest --cov            (uses [run] source below)
+#   coverage report
+
+[run]
+source =
+    app/services
+
+[report]
+show_missing = True
+skip_empty = True
+precision = 1
+
+[json]
+output = coverage.json

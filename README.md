@@ -25,7 +25,7 @@ Claude reads messy text and summarises web results. Every price, percentage, and
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
 | Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
-| Tests | pytest, 434 tests, SQLite in-process (no Langflow or PostgreSQL needed) |
+| Tests | pytest, 458 tests collected, SQLite in-process (no Langflow or PostgreSQL needed); 94% line coverage over `app/services` |
 
 ### Key source files
 
@@ -193,11 +193,47 @@ All tests use an in-process SQLite database — no PostgreSQL or Langflow requir
 
 ```powershell
 cd backend
-pytest                        # run all 434 tests
+pytest                        # run all 458 tests (live ones are skipped)
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
 pytest -m live                # live flow check against the real Langflow (skipped by default)
 ```
+
+The README's test count is what `pytest --collect-only -q` reports (collected = passed + skipped; the live tests are collected but skipped unless `-m live`). `python scripts\check_claims.py` fails when the two differ.
+
+Coverage (line, over `app/services`; `app/audit` is added once it exists) is configured in `backend/.coveragerc`:
+
+```powershell
+pytest --cov --cov-report=term
+```
+
+### Release check
+
+From the repo root, before every push and before the freeze:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scriptselease_check.ps1
+```
+
+It runs pytest with coverage, the coverage report, `npm run build`, the flow-export secrets check, `python -m app.flowcheck` and the claims check, and stops at the first failure. `-SkipFlowcheck` skips the live flow check when Langflow is down; that run is not a full release check.
+
+### Eval harness
+
+From `backend\` (writes `eval/results.json` and `eval/results.md`, stamped with the date, git commit, the model in each exported flow and the sha256 of every `langflow/*.json`):
+
+```powershell
+python -m eval.run --suite E1,E2,E3,E4
+```
+
+| Suite | Measures | Data | Needs |
+| --- | --- | --- | --- |
+| E1 / E1b | Organize extraction per field, price exact match, rows missed / invented; flags that change because of misreading | `eval/data/e1/` | Langflow + Organize flow |
+| E2 | Detection and false-positive rate per flag | `eval/data/e2_rows.json` | offline |
+| E3 | Web price MAPE, no-quote rate, share off by more than 30%, listings dropped by the evidence guards | `eval/data/e3_prices.csv` | Langflow + maker_agent + Serper |
+| E4 | Name-matching wrong-match rate | `eval/data/e4_names.csv` | offline |
+| E5, E6 | Checker extraction and payment detection | — | land with M21–M22 |
+
+E2 and E4 run on a throwaway seeded SQLite database, never the dev database. A suite whose data, flow ID or Langflow is missing is reported as skipped with the reason. Data files marked as example are labelled "EXAMPLE DATA — not a measurement" in the results; see `eval/data/README.md` for what still has to be filled in.
 
 ### Live flow check
 

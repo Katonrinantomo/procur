@@ -22,6 +22,8 @@ pydantic-settings==2.15.0
 pydantic_core==2.50.0
 pytest==9.1.1
 pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+coverage==7.17.0
 python-dotenv==1.2.4
 python-multipart==0.0.32
 RapidFuzz==3.14.6

@@ -1,0 +1,13 @@
+# EXAMPLE DATA: item names only. manual_price_idr, checked_on and source_url are blank on purpose and must be checked by hand on a marketplace (Tokopedia / Shopee); rows without all three are not scored.
+# The plan calls for 15 items. manual_price_idr = whole rupiah per unit as sold in the item text; checked_on = YYYY-MM-DD; source_url = the listing you read the price from.
+item,manual_price_idr,checked_on,source_url,notes
+Oli Shell Helix HX7 10W-40 4 liter,,,,
+Bearing SKF 6205,,,,
+Kabel listrik NYM 2x1.5 Eterna 50 meter,,,,
+Lakban bening 48mm x 100 yard,,,,
+Sarung tangan katun 1 lusin,,,,
+Mata bor besi HSS 10mm Bosch,,,,
+Gerinda tangan Bosch GWS 060,,,,
+Cat tembok Dulux Catylac 25 kg,,,,
+Kertas HVS A4 70gsm Sidu 1 rim,,,,
+Meteran Stanley 5 meter,,,,

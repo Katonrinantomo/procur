@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "example": false,
+    "note": "Ground truth for the Organize flow, keyed by message file in this folder. The plan calls for 30 messages (half real and anonymized, half written with typos, slang, '1/2 lusin', '1,45jt', mixed units); these are the first 3. Prices are whole rupiah per unit; null means the message gives no value and the model must not invent one."
+  },
+  "messages": {
+    "wa_01.txt": {
+      "items": [
+        {
+          "name": "oli",
+          "qty": 4,
+          "unit": "drum",
+          "department": "produksi",
+          "quoted_unit_price_idr": 1450000,
+          "supplier": "CV Sinar"
+        }
+      ]
+    },
+    "wa_02.txt": {
+      "items": [
+        {
+          "name": "bearing SKF 6205",
+          "qty": 10,
+          "unit": "pcs",
+          "department": "maintenance",
+          "quoted_unit_price_idr": 65000,
+          "supplier": "PT Bearindo"
+        },
+        {
+          "name": "lakban bening 2 inch",
+          "qty": 24,
+          "unit": "roll",
+          "department": "maintenance",
+          "quoted_unit_price_idr": 18500,
+          "supplier": "Toko Maju Jaya"
+        }
+      ]
+    },
+    "wa_03.txt": {
+      "items": [
+        {
+          "name": "sarung tangan katun",
+          "qty": 5,
+          "unit": "lusin",
+          "department": "gudang",
+          "quoted_unit_price_idr": null,
+          "supplier": null
+        },
+        {
+          "name": "masker kain",
+          "qty": 200,
+          "unit": "pcs",
+          "department": "gudang",
+          "quoted_unit_price_idr": null,
+          "supplier": null
+        }
+      ]
+    }
+  }
+}
