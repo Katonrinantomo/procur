@@ -10,6 +10,7 @@ import HistoryPage from './components/HistoryPage'
 import QuickCheckPage from './components/QuickCheckPage'
 import VendorQuotesPage from './components/VendorQuotesPage'
 import AuditLogPage from './components/AuditLogPage'
+import ReviewPage from './components/ReviewPage'
 import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
 import { useQueue } from './hooks/useQueue'
@@ -95,6 +96,7 @@ function AuthedApp() {
   }
 
   const isAudit = hash === '#audit'
+  const isReview = hash === '#review'
   const isImport = hash === '#import'
   const isHistory = hash === '#history'
   const isQuickCheck = hash === '#quick-check'
@@ -121,8 +123,9 @@ function AuthedApp() {
       {isQuickCheck && <QuickCheckPage />}
       {isVendorQuotes && <VendorQuotesPage />}
       {isAudit && <AuditLogPage />}
+      {isReview && <ReviewPage role={role} />}
 
-      {!isImport && !isHistory && !isQuickCheck && !isVendorQuotes && !isAudit && <main style={{
+      {!isImport && !isHistory && !isQuickCheck && !isVendorQuotes && !isAudit && !isReview && <main style={{
         width: '100%',
         maxWidth: 1240,
         margin: '0 auto',

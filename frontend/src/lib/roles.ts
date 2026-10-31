@@ -5,9 +5,10 @@
 
 export type Role = 'purchasing' | 'owner' | 'finance'
 
-export type NavTab = 'Today' | 'Quick check' | 'Vendor quotes' | 'History' | 'Import' | 'Audit Log'
+export type NavTab = 'Review' | 'Today' | 'Quick check' | 'Vendor quotes' | 'History' | 'Import' | 'Audit Log'
 
 const TAB_HASH: Record<NavTab, string> = {
+  'Review': '#review',
   'Today': '#today',
   'Quick check': '#quick-check',
   'Vendor quotes': '#vendor-quotes',
@@ -18,15 +19,14 @@ const TAB_HASH: Record<NavTab, string> = {
 
 const TABS_BY_ROLE: Record<Role, NavTab[]> = {
   purchasing: ['Today', 'Quick check', 'Vendor quotes', 'History', 'Import'],
-  owner: ['Today', 'History', 'Audit Log'],
+  owner: ['Review', 'Today', 'History', 'Audit Log'],
   finance: ['Today', 'History', 'Audit Log'],
 }
 
-// Review (owner) and Payments (finance) pages arrive in M19 / M24; until then
-// owner lands on Today, where approve/return live, and finance on History.
+// The Payments page (finance) arrives in M24; until then finance lands on History.
 const LANDING_BY_ROLE: Record<Role, string> = {
   purchasing: '#today',
-  owner: '#today',
+  owner: '#review',
   finance: '#history',
 }
 

@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     # pricing.py — TIDAK WAJAR above this diff_pct (%) is TOLAK, not NEGOSIASI
     RECOMMEND_TOLAK_PCT: float = 30.0
 
+    # decisions — approving a row at or above this risk score is an override
+    # (reason and outcome tag required), like approving a flagged row
+    OVERRIDE_RISK_SCORE: int = 50
+
     # quotations — maximum upload size
     QUOTATION_MAX_BYTES: int = 10 * 1024 * 1024
 

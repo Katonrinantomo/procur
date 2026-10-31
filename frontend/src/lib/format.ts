@@ -31,3 +31,16 @@ export function formatDate(d: string | Date): string {
     year: 'numeric',
   })
 }
+
+/** "31 Oct 2026, 14:02" in Asia/Jakarta */
+export function formatDateTime(d: string | Date): string {
+  const date = typeof d === 'string' ? new Date(d) : d
+  return date.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  })
+}

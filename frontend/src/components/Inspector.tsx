@@ -5,17 +5,20 @@ import WebQuotesTable from './WebQuotesTable'
 import StatusChip from './StatusChip'
 import BandChip from './BandChip'
 import SupplierPanel from './SupplierPanel'
-import ReturnDialog from './ReturnDialog'
+import DecisionDialog, { type DecisionMode } from './DecisionDialog'
+import DecisionHistory from './DecisionHistory'
 import { formatRupiah, formatRupiahWithPrefix, formatPct } from '../lib/format'
 import { useApprove, useReturn } from '../hooks/useItemActions'
 import { fetchWithAuth } from '../lib/api'
 import { canRecheck as roleCanRecheck } from '../lib/roles'
-import type { RequestItemDetail } from '../types/api'
+import type { OutcomeTag, RequestItemDetail } from '../types/api'
 
 interface InspectorProps {
   detail: RequestItemDetail | undefined
   isLoading: boolean
   role?: string | null
+  // Called after an approve or return succeeds
+  onDecided?: (id: number) => void
 }
 
 function InspectorSkeleton() {
@@ -36,9 +39,9 @@ function InspectorSkeleton() {
   )
 }
 
-export default function Inspector({ detail, isLoading, role }: InspectorProps) {
+export default function Inspector({ detail, isLoading, role, onDecided }: InspectorProps) {
   const [supplierPanelOpen, setSupplierPanelOpen] = useState(false)
-  const [returnDialogOpen, setReturnDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<DecisionMode | null>(null)
   const [rechecking, setRechecking] = useState(false)
 
   const qc = useQueryClient()
@@ -54,7 +57,8 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
     minute: '2-digit',
     timeZone: 'Asia/Jakarta',
   })
-  const requesterLine = `Row ${lineNo} · Requested by ${detail.department ?? detail.requested_by ?? 'unknown'}, ${requestedTime}`
+  const enteredBy = detail.entered_by ? ` · Entered by ${detail.entered_by}` : ''
+  const requesterLine = `Row ${lineNo} · Requested by ${detail.department ?? detail.requested_by ?? 'unknown'}, ${requestedTime}${enteredBy}`
 
   const hasHistory = detail.checked_via === 'history' && detail.last_purchases && detail.last_purchases.length > 0
   const hasWebQuotes = detail.web_quotes && detail.web_quotes.length > 0
@@ -65,15 +69,30 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
   const canRecheck = (detail.status === 'approved' || detail.status === 'returned') && roleCanRecheck(role)
   const actionError = approveMutation.error ?? returnMutation.error
 
+  // Approving a flagged or high-risk row is an override: the backend requires
+  // a reason and an outcome tag, so ask for them first.
   function handleApprove() {
     if (!canAct) return
-    approveMutation.mutate()
+    if (detail!.override_required) openDialog('override')
+    else approveMutation.mutate({}, { onSuccess: () => onDecided?.(detail!.id) })
   }
 
-  function handleReturnConfirm(note: string) {
-    returnMutation.mutate(note, {
-      onSuccess: () => setReturnDialogOpen(false),
-    })
+  function openDialog(mode: DecisionMode) {
+    // Clear an error left over from an earlier attempt.
+    approveMutation.reset()
+    returnMutation.reset()
+    setDialogMode(mode)
+  }
+
+  function handleDialogConfirm(reason: string, outcomeTag: OutcomeTag | null) {
+    const close = {
+      onSuccess: () => {
+        setDialogMode(null)
+        onDecided?.(detail!.id)
+      },
+    }
+    if (dialogMode === 'return') returnMutation.mutate(reason, close)
+    else approveMutation.mutate({ reason, outcome_tag: outcomeTag ?? undefined }, close)
   }
 
   return (
@@ -221,16 +240,8 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
             )
           })()}
 
-          {/* Return note (when returned) */}
-          {detail.status === 'returned' && detail.actions.length > 0 && (() => {
-            const returnAction = [...detail.actions].reverse().find(a => a.action === 'return')
-            return returnAction?.note ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 12, color: '#6B6B66' }}>Return note</span>
-                <p style={{ margin: 0, fontSize: 14, color: '#4A4A46' }}>{returnAction.note}</p>
-              </div>
-            ) : null
-          })()}
+          {/* Decision history: who, when, why, and what they saw */}
+          <DecisionHistory decisions={detail.decisions} />
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -270,11 +281,11 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
                     color: approveMutation.isPending ? '#9E9E99' : '#1A1A1A',
                   }}
                 >
-                  {approveMutation.isPending ? 'Approving…' : 'Approve'}
+                  {approveMutation.isPending ? 'Approving…' : detail.override_required ? 'Approve with reason' : 'Approve'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setReturnDialogOpen(true)}
+                  onClick={() => openDialog('return')}
                   disabled={returnMutation.isPending}
                   style={{
                     height: 44,
@@ -326,7 +337,7 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
                 {rechecking ? 'Rechecking…' : 'Recheck'}
               </button>
             )}
-            {actionError && (
+            {actionError && dialogMode === null && (
               <span style={{ fontSize: 13, color: '#9A3412' }}>{actionError.message}</span>
             )}
           </div>
@@ -376,13 +387,16 @@ export default function Inspector({ detail, isLoading, role }: InspectorProps) {
         />
       )}
 
-      {/* Return dialog */}
-      {returnDialogOpen && (
-        <ReturnDialog
+      {/* Reason dialog: return, or approve as an override */}
+      {dialogMode && (
+        <DecisionDialog
+          key={`${detail.id}-${dialogMode}`}
+          mode={dialogMode}
           itemName={detail.raw_name}
-          onConfirm={handleReturnConfirm}
-          onCancel={() => setReturnDialogOpen(false)}
-          isSending={returnMutation.isPending}
+          onConfirm={handleDialogConfirm}
+          onCancel={() => setDialogMode(null)}
+          isSending={dialogMode === 'return' ? returnMutation.isPending : approveMutation.isPending}
+          error={(dialogMode === 'return' ? returnMutation.error : approveMutation.error)?.message ?? null}
         />
       )}
     </>

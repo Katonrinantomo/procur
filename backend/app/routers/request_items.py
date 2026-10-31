@@ -1,8 +1,8 @@
 """
 GET  /api/request-items/{id}   — item detail (totals, stock, flags, history/web)
 POST /api/request-items/{id}/recheck  — re-run check engine
-POST /api/request-items/{id}/approve  — set status approved + log action
-POST /api/request-items/{id}/return   — set status returned + log action (with note)
+POST /api/request-items/{id}/approve  — set status approved + log decision
+POST /api/request-items/{id}/return   — set status returned + log decision (reason required)
 """
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.routers.auth import CurrentUser, get_current_user, require_roles
-from app.models import User, AuditLog
 from app.db import get_db
-from app.models import Action, Flag, Item, Purchase, Request, RequestItem, Stock, WebQuote
-from app.schemas import (AuditLogOut,
+from app.models import AuditLog, Flag, Purchase, Request, RequestItem, Stock, User, WebQuote
+from app.schemas import (
     ActionOut,
     ApproveIn,
+    DecisionOut,
     FlagOut,
     PurchaseOut,
     RequestItemDetail,
@@ -29,6 +29,7 @@ from app.schemas import (AuditLogOut,
 )
 from app.security import limiter, mask_pii, RATE_LLM
 from app.services.checker import check_item
+from app.services.decisions import DecisionError, is_override, record_request_item_decision
 from app.services.pricing import get_price_status
 
 # Router-level auth: all endpoints in this router require a valid token.
@@ -139,37 +140,40 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
                 for wq in wq_rows
             ]
 
-    # Actions
-    actions = (
-        db.execute(
-            select(Action)
-            .where(Action.request_item_id == ri.id)
-            .order_by(Action.created_at)
+    # Decision history (oldest first) with the decider's username
+    decision_rows = db.execute(
+        select(AuditLog, User.username)
+        .outerjoin(User, User.id == AuditLog.user_id)
+        .where(AuditLog.subject_type == "request_item", AuditLog.subject_id == ri.id)
+        .order_by(AuditLog.created_at, AuditLog.id)
+    ).all()
+    decisions = [
+        DecisionOut(
+            id=log.id,
+            created_at=log.created_at,
+            subject_type=log.subject_type,
+            subject_id=log.subject_id,
+            item_name=ri.raw_name,
+            decision=log.decision,
+            reason=log.reason,
+            outcome_tag=log.outcome_tag,
+            username=username,
+            role=log.role,
+            snapshot=log.snapshot,
         )
-        .scalars()
-        .all()
-    )
+        for log, username in decision_rows
+    ]
+    # Legacy view of the same decisions, kept for older clients.
+    actions = [
+        ActionOut(action=d.decision, note=d.reason, actor=d.username, created_at=d.created_at)
+        for d in decisions
+    ]
 
-    # Latest AuditLog for this row (joined with User to get the actor's role)
-    from app.models import AuditLog
-    latest_audit = (
-        db.execute(
-            select(AuditLog, User.role)
-            .join(User, User.id == AuditLog.user_id)
-            .where(AuditLog.request_item_id == ri.id)
-            .order_by(AuditLog.created_at.desc())
-            .limit(1)
-        ).first()
-    )
-    latest_audit_log: AuditLogOut | None = None
-    if latest_audit is not None:
-        audit_row, actor_role = latest_audit
-        latest_audit_log = AuditLogOut(
-            action=audit_row.action,
-            note=audit_row.note,
-            actor_role=actor_role,
-            created_at=audit_row.created_at,
-        )
+    entered_by = None
+    if req.created_by_user_id is not None:
+        entered_by = db.execute(
+            select(User.username).where(User.id == req.created_by_user_id)
+        ).scalar_one_or_none()
 
     diff_pct = float(ri.diff_pct) if ri.diff_pct is not None else None
 
@@ -208,8 +212,10 @@ def _build_detail(ri: RequestItem, db: Session) -> RequestItemDetail:
         flags=[FlagOut(code=f.code, message=f.message) for f in flags],
         last_purchases=last_purchases,
         web_quotes=web_quotes_out,
-        actions=[ActionOut.model_validate(a) for a in actions],
-        latest_audit_log=latest_audit_log,
+        actions=actions,
+        decisions=decisions,
+        entered_by=entered_by,
+        override_required=is_override((f.code for f in flags), ri.risk_score, ri.status),
     )
 
 
@@ -257,9 +263,47 @@ def recheck_request_item(
     return _build_detail(ri, db)
 
 
+def _decide(
+    item_id: int,
+    decision: str,
+    reason: str | None,
+    outcome_tag: str | None,
+    db: Session,
+    current_user: CurrentUser,
+) -> RequestItemDetail:
+    ri = _get_or_404(db, item_id)
+
+    # Self-approval guard: owner may not decide on a request they created
+    parent_req = db.get(Request, ri.request_id)
+    if parent_req is not None and parent_req.created_by_user_id == current_user.id:
+        verb = "approve" if decision == "approve" else "return"
+        raise HTTPException(
+            status_code=403,
+            detail=f"You cannot {verb} a request you created",
+        )
+
+    try:
+        record_request_item_decision(
+            db,
+            ri,
+            decision=decision,
+            user_id=current_user.id,
+            role=current_user.role,
+            reason=reason,
+            outcome_tag=outcome_tag,
+        )
+    except DecisionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc))
+    db.commit()
+    db.refresh(ri)
+    return _build_detail(ri, db)
+
+
 # ---------------------------------------------------------------------------
 # POST /api/request-items/{id}/approve
 # owner only; 403 if the owner created the request.
+# Approving a flagged or high-risk row (an override) needs reason + outcome_tag.
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/approve", response_model=RequestItemDetail)
@@ -269,38 +313,12 @@ def approve_request_item(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_roles("owner")),
 ):
-    ri = _get_or_404(db, item_id)
-
-    # Self-approval guard: owner may not approve a request they created
-    parent_req = db.get(Request, ri.request_id)
-    if parent_req is not None and parent_req.created_by_user_id == current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You cannot approve a request you created",
-        )
-
-    ri.status = "approved"
-    db.add(Action(
-        request_item_id=ri.id,
-        action="approve",
-        note=None,
-        actor=current_user.username,
-    ))
-    # Audit log — owner-only action
-    db.add(AuditLog(
-        request_item_id=ri.id,
-        user_id=current_user.id,
-        action="approve",
-        note=None,
-    ))
-    db.commit()
-    db.refresh(ri)
-    return _build_detail(ri, db)
+    return _decide(item_id, "approve", body.reason, body.outcome_tag, db, current_user)
 
 
 # ---------------------------------------------------------------------------
 # POST /api/request-items/{id}/return
-# owner only; 403 if the owner created the request.
+# owner only; 403 if the owner created the request. Reason required.
 # ---------------------------------------------------------------------------
 
 @router.post("/api/request-items/{item_id}/return", response_model=RequestItemDetail)
@@ -310,30 +328,5 @@ def return_request_item(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_roles("owner")),
 ):
-    ri = _get_or_404(db, item_id)
-
-    # Self-approval guard: owner may not return a request they created
-    parent_req = db.get(Request, ri.request_id)
-    if parent_req is not None and parent_req.created_by_user_id == current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You cannot return a request you created",
-        )
-
-    ri.status = "returned"
-    db.add(Action(
-        request_item_id=ri.id,
-        action="return",
-        note=body.note,
-        actor=current_user.username,
-    ))
-    # Audit log — owner-only action
-    db.add(AuditLog(
-        request_item_id=ri.id,
-        user_id=current_user.id,
-        action="return",
-        note=body.note,
-    ))
-    db.commit()
-    db.refresh(ri)
-    return _build_detail(ri, db)
+    reason = body.reason if body.reason is not None else body.note
+    return _decide(item_id, "return", reason, body.outcome_tag, db, current_user)

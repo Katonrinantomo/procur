@@ -12,13 +12,15 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
+    event,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.db import Base
 
@@ -214,6 +216,7 @@ class Action(Base):
     # action: approve | return
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
+    # No longer written (M19): the decider lives in audit_log.user_id.
     actor: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -241,10 +244,15 @@ class User(Base):
 
 
 # ---------------------------------------------------------------------------
-# audit_log
+# audit_log — the decision log (M19). Append-only: no code path may update or
+# delete a row; the before_flush guard below enforces it for the ORM.
 # ---------------------------------------------------------------------------
 class AuditLog(Base):
     __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_subject", "subject_type", "subject_id"),
+        Index("ix_audit_log_created_at", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     request_item_id: Mapped[int | None] = mapped_column(
@@ -253,13 +261,40 @@ class AuditLog(Base):
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
+    # Legacy columns, still written: action mirrors decision, note mirrors reason.
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
+    # subject_type: request_item | quotation | bundle
+    subject_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    subject_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    # decision: approve | return | pay | hold | clarify
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    # Role of the deciding user at decision time.
+    role: Mapped[str | None] = mapped_column(String(20))
+    # outcome_tag: false_alarm | risk_accepted — set only on overrides.
+    outcome_tag: Mapped[str | None] = mapped_column(String(20))
+    # Flags, risk score, reference price and source at decision time.
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="audit_logs")
+
+
+class AuditLogImmutableError(RuntimeError):
+    """Raised when a session tries to update or delete a decision-log row."""
+
+
+@event.listens_for(Session, "before_flush")
+def _audit_log_append_only(session: Session, flush_context, instances) -> None:
+    for obj in session.deleted:
+        if isinstance(obj, AuditLog):
+            raise AuditLogImmutableError("audit_log rows cannot be deleted")
+    for obj in session.dirty:
+        if isinstance(obj, AuditLog) and session.is_modified(obj, include_collections=False):
+            raise AuditLogImmutableError("audit_log rows cannot be updated")
 
 
 # ---------------------------------------------------------------------------

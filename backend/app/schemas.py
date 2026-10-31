@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -30,6 +30,8 @@ class QueueRow(BaseModel):
     requested_at: datetime
     flag_codes: list[str]
     risk_score: int = 0
+    # Username of whoever entered the request (Review page only).
+    entered_by: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -97,6 +99,21 @@ class AuditLogOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DecisionOut(BaseModel):
+    """One decision-log row: who, when, what, why, and what they saw."""
+    id: int
+    created_at: datetime
+    subject_type: str
+    subject_id: int
+    item_name: Optional[str] = None
+    decision: str
+    reason: Optional[str]
+    outcome_tag: Optional[str]
+    username: Optional[str]
+    role: Optional[str]
+    snapshot: Optional[dict[str, Any]]
+
+
 class RequestItemDetail(BaseModel):
     # Row fields
     id: int
@@ -142,6 +159,12 @@ class RequestItemDetail(BaseModel):
 
     # Audit trail
     actions: list[ActionOut]
+    decisions: list[DecisionOut] = []
+
+    # Username of whoever entered the request
+    entered_by: Optional[str] = None
+    # True when approving needs a reason and outcome tag (flagged or high-risk)
+    override_required: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -189,12 +212,24 @@ class SuppliersResponse(BaseModel):
 # Action endpoints — inbound body
 # ---------------------------------------------------------------------------
 
+OutcomeTag = Literal["false_alarm", "risk_accepted"]
+
+
 class ReturnIn(BaseModel):
-    note: str
+    """The decider comes from the JWT. `note` is the pre-M19 name for reason."""
+    reason: Optional[str] = None
+    note: Optional[str] = None
+    outcome_tag: Optional[OutcomeTag] = None
 
 
 class ApproveIn(BaseModel):
-    """Empty body; the actor is taken from the JWT, never from the browser."""
+    """The decider comes from the JWT, never from the browser.
+
+    reason and outcome_tag are required when the row is flagged or its
+    risk score is at or above OVERRIDE_RISK_SCORE (checked in the handler).
+    """
+    reason: Optional[str] = None
+    outcome_tag: Optional[OutcomeTag] = None
 
 
 # ---------------------------------------------------------------------------
@@ -341,3 +376,11 @@ class QuotationSummary(BaseModel):
     vendor_name: Optional[str]
     vendor_score: Optional[int]
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Review page (M19)
+# ---------------------------------------------------------------------------
+
+class ReviewResponse(BaseModel):
+    rows: list[QueueRow]

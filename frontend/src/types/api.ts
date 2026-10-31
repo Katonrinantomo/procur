@@ -19,6 +19,7 @@ export interface QueueRow {
   requested_at: string  // ISO datetime string
   flag_codes: string[]
   risk_score: number
+  entered_by?: string | null  // Review page only
 }
 
 export interface StatusCounts {
@@ -104,7 +105,10 @@ export interface RequestItemDetail {
   last_purchases: PurchaseOut[] | null
   web_quotes: WebQuoteOut[] | null
   actions: ActionOut[]
-  latest_audit_log?: AuditLogRow | null
+  decisions: DecisionRow[]
+  entered_by: string | null
+  // Approving needs a reason and an outcome tag (flagged or high-risk row)
+  override_required: boolean
 }
 
 export interface SupplierSummary {
@@ -198,6 +202,38 @@ export interface QuickCheckResult {
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
+
+export type OutcomeTag = 'false_alarm' | 'risk_accepted'
+
+/** What the decider saw; recorded by the backend at decision time. */
+export interface DecisionSnapshot {
+  status?: string
+  flags?: FlagOut[]
+  risk_score?: number
+  quoted_unit_price_idr?: number | null
+  reference_unit_price_idr?: number | null
+  reference_source?: string | null
+  history_count?: number | null
+  diff_pct?: number | null
+}
+
+export interface DecisionRow {
+  id: number
+  created_at: string
+  subject_type: string
+  subject_id: number
+  item_name: string | null
+  decision: string
+  reason: string | null
+  outcome_tag: OutcomeTag | null
+  username: string | null
+  role: string | null
+  snapshot: DecisionSnapshot | null
+}
+
+export interface ReviewResponse {
+  rows: QueueRow[]
+}
 
 export interface AuditLogRow {
   id: number
