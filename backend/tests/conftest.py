@@ -52,6 +52,25 @@ _engine = create_engine(
 _TestSession = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
 
+# ---------------------------------------------------------------------------
+# "live" marker: tests that call the real Langflow and Claude API.
+# Skipped unless selected with `pytest -m live`, so the default run stays offline.
+# ---------------------------------------------------------------------------
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "live: calls the real Langflow and Claude API (run with -m live)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if "live" in (config.getoption("-m") or ""):
+        return
+    skip_live = pytest.mark.skip(reason="live test; run with -m live")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def seeded_db():
     """

@@ -74,7 +74,7 @@ async def test_parse_text_happy_path():
     """parse_text returns LineItemDraft list when flow returns valid JSON."""
     with patch(
         "app.services.organizer.run_flow",
-        new=AsyncMock(return_value=VALID_RESPONSE),
+        new=AsyncMock(return_value={"organize_json": VALID_RESPONSE}),
     ):
         drafts = await parse_text("gudang minta oli hidrolik 4 drum")
 
@@ -96,7 +96,7 @@ async def test_parse_text_strips_code_fences():
     """parse_text succeeds even when the model wraps its JSON in code fences."""
     with patch(
         "app.services.organizer.run_flow",
-        new=AsyncMock(return_value=FENCED_RESPONSE),
+        new=AsyncMock(return_value={"organize_json": FENCED_RESPONSE}),
     ):
         drafts = await parse_text("test input")
 
@@ -117,14 +117,14 @@ async def test_parse_text_retries_on_invalid_and_succeeds():
     """
     call_count = 0
 
-    async def _mock_run_flow(flow_id: str, text: str) -> str:
+    async def _mock_run_flow(flow_id: str, text: str) -> dict[str, str]:
         nonlocal call_count
         call_count += 1
         if call_count == 1:
-            return INVALID_RESPONSE
+            return {"organize_json": INVALID_RESPONSE}
         # Second call receives the original text + error hint
         assert "Previous answer was invalid" in text
-        return VALID_RESPONSE_AFTER_RETRY
+        return {"organize_json": VALID_RESPONSE_AFTER_RETRY}
 
     with patch("app.services.organizer.run_flow", new=_mock_run_flow):
         drafts = await parse_text("2 solenoid valve 24V")

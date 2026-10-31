@@ -1,16 +1,16 @@
 import logging
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app.config import settings, validate_settings
-from app.routers import audit_logs, auth, imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
+from app.config import FLOW_ID_SETTINGS, settings, validate_settings
+from app.routers import audit_logs, auth, health, imports, items, purchases, queue, quick_check, request_items, request_items_list, requests
 from app.security import limiter
+from app.services import langflow_client
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +21,14 @@ async def lifespan(app: FastAPI):
     validate_settings()
 
     # Startup: validate Langflow configuration
-    missing = []
     if not settings.LANGFLOW_API_KEY:
-        missing.append("LANGFLOW_API_KEY")
-    if not settings.LANGFLOW_ORGANIZE_FLOW_ID:
-        missing.append("LANGFLOW_ORGANIZE_FLOW_ID")
-    if not settings.LANGFLOW_WEBCHECK_FLOW_ID:
-        missing.append("LANGFLOW_WEBCHECK_FLOW_ID")
-    if missing:
         logger.error(
-            "Langflow is not fully configured. Missing or empty: %s. "
-            "Set these in backend/.env before using AI features.",
-            ", ".join(missing),
+            "LANGFLOW_API_KEY is empty. "
+            "Set it in backend/.env before using AI features."
         )
+    for flow, setting in FLOW_ID_SETTINGS.items():
+        if not getattr(settings, setting):
+            logger.warning("Flow '%s' disabled: %s is empty", flow, setting)
     yield
 
 
@@ -90,6 +85,7 @@ app.include_router(requests.router)
 app.include_router(items.router)
 app.include_router(imports.router)
 app.include_router(quick_check.router)
+app.include_router(health.router)
 
 
 def _langflow_configured() -> bool:
@@ -106,13 +102,5 @@ async def health():
         return {"status": "ok", "app": settings.APP_NAME, "langflow": "not configured"}
 
     # Check Langflow reachability with a short timeout
-    langflow_status = "down"
-    try:
-        async with httpx.AsyncClient(timeout=3) as client:
-            r = await client.get(f"{settings.LANGFLOW_URL}/api/v1/version")
-            if r.status_code < 500:
-                langflow_status = "ok"
-    except Exception:  # noqa: BLE001
-        pass
-
+    langflow_status = "ok" if await langflow_client.ping() else "down"
     return {"status": "ok", "app": settings.APP_NAME, "langflow": langflow_status}

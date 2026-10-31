@@ -18,7 +18,6 @@ Callers must NOT pass an unsaved RequestItem or call session.refresh().
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -27,9 +26,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.flows.contracts import WEBCHECK_OUT, WebCheckOut, parse_flow_json_once
 from app.models import WebQuote
 from app.security import safe_http_url
-from app.services.langflow_client import LangflowError, run_flow
+from app.services.langflow_client import LangflowError, pick_output, run_flow
 from app.services.matcher import normalize_name
 
 logger = logging.getLogger(__name__)
@@ -78,17 +78,13 @@ def _fetch_cached(item_key: str, session: Session) -> list[WebQuote]:
 
 def _call_flow(flow_input: str) -> list[dict]:
     """
-    Call the Web check flow synchronously and return the parsed JSON array.
-    Raises LangflowError on failure; callers must handle it.
+    Call the Web check flow synchronously and return the parsed offers.
+    Raises LangflowError, ValueError or ValidationError on failure; callers
+    must handle it.
     """
-    raw = asyncio.run(run_flow(settings.LANGFLOW_WEBCHECK_FLOW_ID, flow_input))
-    # Strip optional code fences
-    raw = raw.strip()
-    if raw.startswith("```"):
-        import re
-        m = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw, re.IGNORECASE)
-        raw = m.group(1).strip() if m else raw
-    return json.loads(raw)
+    outputs = asyncio.run(run_flow(settings.LANGFLOW_WEBCHECK_FLOW_ID, flow_input))
+    raw = pick_output(outputs, WEBCHECK_OUT)
+    return [offer.model_dump() for offer in parse_flow_json_once(raw, WebCheckOut).root]
 
 
 def _save_quotes(

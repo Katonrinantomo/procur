@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     LANGFLOW_API_KEY: str = ""
     LANGFLOW_ORGANIZE_FLOW_ID: str = ""
     LANGFLOW_WEBCHECK_FLOW_ID: str = ""
+    LANGFLOW_MAKER_FLOW_ID: str = ""
+    LANGFLOW_CHECKER_FLOW_ID: str = ""
+    LANGFLOW_NARRATOR_FLOW_ID: str = ""
 
     # ---------------------------------------------------------------------------
     # Check engine thresholds
@@ -54,6 +57,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Flow name -> Settings attribute holding its Langflow flow ID.
+# Used by the startup warning, flowcheck and /api/health/flows.
+FLOW_ID_SETTINGS: dict[str, str] = {
+    "organize": "LANGFLOW_ORGANIZE_FLOW_ID",
+    "web_check": "LANGFLOW_WEBCHECK_FLOW_ID",
+    "maker": "LANGFLOW_MAKER_FLOW_ID",
+    "checker": "LANGFLOW_CHECKER_FLOW_ID",
+    "narrator": "LANGFLOW_NARRATOR_FLOW_ID",
+}
 
 
 def validate_settings() -> None:

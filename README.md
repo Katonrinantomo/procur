@@ -82,7 +82,12 @@ LANGFLOW_URL=http://localhost:7860
 LANGFLOW_API_KEY=          ← fill in after step 4
 LANGFLOW_ORGANIZE_FLOW_ID= ← fill in after step 4
 LANGFLOW_WEBCHECK_FLOW_ID= ← fill in after step 4
+LANGFLOW_MAKER_FLOW_ID=    ← optional until M18 (maker_agent)
+LANGFLOW_CHECKER_FLOW_ID=  ← optional until M21 (checker_agent)
+LANGFLOW_NARRATOR_FLOW_ID= ← optional until M24 (risk_narrator)
 ```
+
+An empty flow ID only disables that flow; the backend logs a warning at startup.
 
 > **SQLite fallback** — no Docker needed:
 > set `DATABASE_URL=sqlite:///./procur.db` in `backend\.env`.
@@ -191,7 +196,31 @@ cd backend
 pytest                        # run all 265 tests
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
+pytest -m live                # live flow check against the real Langflow (skipped by default)
 ```
+
+### Live flow check
+
+`python -m app.flowcheck` (from `backend\`) runs every fixture in `langflow/fixtures/<flow>/*.txt` through each flow whose ID is set, validates the output against its contract in `app/flows/contracts.py`, and prints pass/fail with latency. It exits 1 on any failure. Owners can see the last result at `GET /api/health/flows`.
+
+---
+
+## Release steps
+
+Run these whenever a flow changes, and before every demo:
+
+1. In Langflow, check each flow's model component: provider **Anthropic**, model `claude-haiku-5-5`, temperature 0, API key from a Langflow global variable (never typed into the component).
+2. Name each flow's Chat Output after its contract: `organize_json` (Organize), `webcheck_json` (Web Check).
+3. Export each flow to `langflow/` and commit the JSON.
+4. Check the exports for secrets — this must pass before you commit:
+   ```powershell
+   python scripts\check_langflow_secrets.py
+   ```
+5. From `backend\`, run the live flow check and the unit tests:
+   ```powershell
+   python -m app.flowcheck
+   pytest
+   ```
 
 ---
 

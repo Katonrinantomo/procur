@@ -13,3 +13,6 @@ backend/.pytest_cache/
 # Database files
 *.db
 *.sqlite
+
+# Last python -m app.flowcheck result (read by /api/health/flows)
+backend/.flowcheck_last.json
