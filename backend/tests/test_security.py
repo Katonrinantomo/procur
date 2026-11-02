@@ -26,6 +26,17 @@ from app.security import safe_http_url
     ("//no-scheme.com/path",              None),
     # URL longer than 2048 characters — must return None
     ("https://example.com/" + "a" * 2048, None),
+    # Loopback, private and link-local targets (SEC-10) — must return None
+    ("http://localhost/x",                None),
+    ("http://LOCALHOST:8000/",            None),
+    ("http://127.0.0.1/x",                None),
+    ("http://10.0.0.5/x",                 None),
+    ("http://192.168.1.10/",              None),
+    ("http://169.254.169.254/latest/meta-data", None),
+    ("http://[::1]/",                     None),
+    ("http://0.0.0.0/",                   None),
+    # A public IP literal is allowed
+    ("http://8.8.8.8/",                   "http://8.8.8.8/"),
     # URL exactly at 2048 is fine
     ("https://a.com/" + "b" * (2048 - len("https://a.com/")), "https://a.com/" + "b" * (2048 - len("https://a.com/"))),
 ])

@@ -4,7 +4,7 @@ The flow is `langflow/Maker.json`. Its ID goes in `LANGFLOW_MAKER_FLOW_ID`. The 
 
 ```
 Chat Input
-  → Prompt (extract)  → Language Model #1 ─┬→ Chat Output "extract_json"   ← add this
+  → Prompt (extract)  → Language Model #1 ─┬→ Chat Output "extract_json"
                                            ├→ Serper Multi Search → Type Convert → Chat Output "serper_raw"
                                            │                      └→ Prompt (evidence)
                                            └→ Prompt (evidence) → Language Model #2 → Chat Output "maker_json"
@@ -40,10 +40,24 @@ If `extract_json` or `maker_json` doesn't fit its contract, the backend re-runs 
 - **Reference price:** purchase history first, else the median of at least 3 kept quotes.
 - **Band, recommendation, vendor score:** `pricing.py` only.
 
-## Flow edits needed
+## Flow edits
 
-1. **Add a Chat Output named `extract_json`**, wired from Language Model #1's output. It is the only way the backend sees the extracted items. Today `maker_json` carries only the evidence model's matches.
-2. **Set temperature to 0** on both Language Model components (now 0.1).
+1. **`extract_json` output: done in the committed export (2 Nov 2026).** The Chat Output `ChatOutput-2FAR2`, display name `extract_json`, is wired from Language Model #1 (`LanguageModelComponent-1FSMS`). It is the only way the backend sees the extracted items; `maker_json` carries only the evidence model's matches. `backend/tests/test_langflow_exports.py` guards it.
+2. **Still open: set temperature to 0** on both Language Model components (now 0.1).
+
+### Adding the `extract_json` output by hand
+
+Use this if a flow in your Langflow is missing the output, or a re-export drops it. The UI wording below is from Langflow 1.x and may differ slightly in your version; the *result* to aim for is the wiring in the diagram at the top of this file. Symptom: every web check and quotation check ends `pending`, and the error says `Flow output 'extract_json' not found; got ['maker_json', 'serper_raw']`.
+
+1. Open the Maker flow in Langflow (`http://localhost:7860`).
+2. Drag a **Chat Output** component onto the canvas, next to the extract model.
+3. Wire it: drag from the text output of **Language Model #1** (the one fed by the *extract* prompt, the one that also feeds *Serper Multi Search* and the *evidence* prompt) to the new component's input handle. It is the same output those two already use. Do **not** use Language Model #2 (the *evidence* model that feeds `maker_json`).
+4. Rename the new component. Click its title, set the display name to exactly `extract_json` (lowercase, underscore). The backend matches on this name.
+5. Leave `Sender` = Machine and the data template at `{text}`, like the other two outputs.
+6. Save, then check the flow now shows three Chat Outputs: `extract_json`, `maker_json`, `serper_raw`.
+7. Export the flow (from the flow's menu; the exact label depends on your Langflow version) over `langflow/Maker.json`, then run `python scripts/check_langflow_secrets.py`, `pytest tests/test_langflow_exports.py` and, with Langflow running, `python -m app.flowcheck` from `backend/`.
+
+If you re-import the flow, copy its new Flow ID into `LANGFLOW_MAKER_FLOW_ID` in `backend/.env`.
 
 Recommended prompt additions, each one line:
 

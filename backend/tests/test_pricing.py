@@ -1,5 +1,8 @@
 """
-Unit tests for pricing.py — pure functions, no database required.
+Unit tests for pricing.py.
+
+Most functions are pure.  TestReferenceFromHistory reads purchases, so it uses
+the shared `session` fixture (seeded SQLite, rolled back after each test).
 """
 from app.services.pricing import diff_pct
 
@@ -99,6 +102,145 @@ class TestReferenceFromQuotes:
 
     def test_empty(self):
         assert reference_from_quotes([]) is None
+
+
+# ---------------------------------------------------------------------------
+# reference_from_history: mean of the last HISTORY_WINDOW purchases (DB-backed)
+# ---------------------------------------------------------------------------
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from app.config import settings  # noqa: E402
+from app.models import Item, Purchase, Supplier  # noqa: E402
+from app.services.pricing import reference_from_history  # noqa: E402
+
+_BASE_DATE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+class TestReferenceFromHistory:
+    """
+    Each test builds its own item and purchases (names are unique to this
+    class, so they never collide with the seeded catalog); the `session`
+    fixture rolls everything back afterwards.
+    """
+
+    @staticmethod
+    def _item(session, name):
+        item = Item(name=name, aliases=[], category="test", unit="pcs")
+        session.add(item)
+        session.flush()
+        return item
+
+    @staticmethod
+    def _supplier(session):
+        sup = session.query(Supplier).filter(Supplier.name == "RFH Test Supplier").first()
+        if sup is None:
+            sup = Supplier(name="RFH Test Supplier")
+            session.add(sup)
+            session.flush()
+        return sup
+
+    def _buy(self, session, item, price, day, qty=1):
+        """Add one purchase on day N of the test calendar (higher N = more recent)."""
+        sup = self._supplier(session)
+        session.add(Purchase(
+            po_number=f"RFH-{item.id}-{day}",
+            purchase_date=_BASE_DATE + timedelta(days=day),
+            item_id=item.id,
+            supplier_id=sup.id,
+            qty=qty,
+            unit_price_idr=price,
+            source="manual",
+        ))
+        session.flush()
+
+    # -- no data ----------------------------------------------------------
+
+    def test_no_purchases_returns_none_and_zero(self, session):
+        item = self._item(session, "RFH no purchases")
+        assert reference_from_history(item.id, session) == (None, 0)
+
+    def test_unknown_item_id_returns_none_and_zero(self, session):
+        assert reference_from_history(-1, session) == (None, 0)
+
+    # -- fewer than the window -------------------------------------------
+
+    def test_one_purchase(self, session):
+        item = self._item(session, "RFH one")
+        self._buy(session, item, 250_000, day=1)
+        assert reference_from_history(item.id, session) == (250_000, 1)
+
+    def test_two_purchases_are_averaged(self, session):
+        item = self._item(session, "RFH two")
+        self._buy(session, item, 100_000, day=1)
+        self._buy(session, item, 120_000, day=2)
+        assert reference_from_history(item.id, session) == (110_000, 2)
+
+    # -- the window -------------------------------------------------------
+
+    def test_three_purchases_are_averaged(self, session):
+        item = self._item(session, "RFH three")
+        for day, price in enumerate([1_100_000, 1_120_000, 1_140_000], start=1):
+            self._buy(session, item, price, day)
+        assert reference_from_history(item.id, session) == (1_120_000, 3)
+
+    def test_only_the_three_most_recent_are_used(self, session):
+        item = self._item(session, "RFH window")
+        # An old outlier (day 1) and three recent prices (days 2-4).
+        self._buy(session, item, 9_000_000, day=1)
+        self._buy(session, item, 100_000, day=2)
+        self._buy(session, item, 200_000, day=3)
+        self._buy(session, item, 300_000, day=4)
+        assert reference_from_history(item.id, session) == (200_000, 3)
+
+    def test_recency_follows_purchase_date_not_insert_order(self, session):
+        item = self._item(session, "RFH order")
+        # Inserted newest-first: the two oldest rows must be the ones dropped.
+        self._buy(session, item, 400_000, day=10)
+        self._buy(session, item, 300_000, day=9)
+        self._buy(session, item, 200_000, day=8)
+        self._buy(session, item, 8_000_000, day=2)
+        self._buy(session, item, 7_000_000, day=1)
+        assert reference_from_history(item.id, session) == (300_000, 3)
+
+    def test_window_size_comes_from_settings(self, session, monkeypatch):
+        item = self._item(session, "RFH setting")
+        for day, price in enumerate([100_000, 200_000, 300_000, 400_000], start=1):
+            self._buy(session, item, price, day)
+        monkeypatch.setattr(settings, "HISTORY_WINDOW", 2)
+        assert reference_from_history(item.id, session) == (350_000, 2)
+
+    # -- isolation --------------------------------------------------------
+
+    def test_other_items_purchases_are_ignored(self, session):
+        mine = self._item(session, "RFH mine")
+        other = self._item(session, "RFH other")
+        self._buy(session, mine, 100_000, day=1)
+        self._buy(session, other, 5_000_000, day=2)
+        assert reference_from_history(mine.id, session) == (100_000, 1)
+
+    # -- rounding ---------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "prices, expected",
+        [
+            ([1_000, 1_000, 1_001], 1_000),   # mean 1000.33 -> down
+            ([1_000, 1_001, 1_001], 1_001),   # mean 1000.67 -> up
+        ],
+    )
+    def test_mean_is_rounded_to_whole_rupiah(self, session, prices, expected):
+        item = self._item(session, f"RFH round {expected}")
+        for day, price in enumerate(prices, start=1):
+            self._buy(session, item, price, day)
+        ref, count = reference_from_history(item.id, session)
+        assert ref == expected
+        assert isinstance(ref, int)
+        assert count == 3
+
+    # -- seeded demo data (README demo: 3-buy average = Rp 1.120.000) -----
+
+    def test_seeded_hydraulic_oil_reference(self, session):
+        item = session.query(Item).filter(Item.name == "Hydraulic oil ISO VG 46, 20L").one()
+        assert reference_from_history(item.id, session) == (1_120_000, 3)
 
 
 def _line(band, qty, price, total=None):
