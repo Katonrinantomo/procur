@@ -1,10 +1,6 @@
 # Procur.AI
 
-Procurement price-check web app for a manufacturing demo. Purchasing pastes the day's requests, the Organize flow turns them into structured line items, and the backend checks each row against purchase history and live web prices — flagging anything that looks over budget. An owner approves or returns each row; every decision is written to an append-only decision log.
-
-Three roles (Maker-Checker): `purchasing` raises and checks requests, `owner` approves or returns them (never their own), `finance` reads the queue, history and decision log.
-
-> Full architecture, RBAC matrix, business-logic truth table, sequence diagrams and security notes: [`ARCHITECTURE.md`](ARCHITECTURE.md). Stale documents and open findings: [`DOCS_AUDIT.md`](DOCS_AUDIT.md).
+Procurement price-check web app for a manufacturing demo. Purchasing pastes the day's requests, the Organize flow turns them into structured line items, and the backend checks each row against purchase history and live web prices — flagging anything that looks over budget.
 
 ---
 
@@ -13,15 +9,12 @@ Three roles (Maker-Checker): `purchasing` raises and checks requests, `owner` ap
 ```
 Browser  ──►  Backend (FastAPI)  ──►  PostgreSQL
                      │
-                     ├──►  Langflow Flow 1: Organize   ──►  LLM
-                     └──►  Langflow maker_agent        ──►  LLM (extract)  ──►  Serper API
-                                                       └──►  LLM (match listings)
+                     ├──►  Langflow Flow 1: Organize   ──►  Claude Haiku 5.5
+                     └──►  Langflow maker_agent        ──►  Claude Haiku 5.5
 ```
 
 **Key rule: the model handles language; the backend handles numbers.**
-The model reads messy text and matches marketplace listings. Every price, percentage, flag and score is computed in Python from the database — never by the model. Web prices come only from listings whose URL and price are found in the Serper results (`services/evidence.py`).
-
-`langflow/Web Check.json` is a legacy flow: web prices now run through `langflow/Maker.json` (`MODE: BON`).
+Claude reads messy text and summarises web results. Every price, percentage, and flag is computed in Python from the database — never by the model.
 
 ### Tech stack
 
@@ -31,10 +24,8 @@ The model reads messy text and matches marketplace listings. Every price, percen
 | Backend | Python 3.11+, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2, httpx, rapidfuzz |
 | Database | PostgreSQL 16 via Docker Compose (SQLite fallback via `DATABASE_URL`) |
 | AI flows | Langflow, run locally with `uv` |
-| Model | `Maker.json`: Anthropic `claude-haiku-5-5`. `Organize.json` as last exported: an OpenAI-compatible gateway (`langflow`); select the model on each Language Model node before a demo (see Release steps) |
-| Web search | Serper API (Google results restricted to Tokopedia, Shopee, Blibli, Lazada) |
-| Auth | Username + password (PBKDF2-HMAC-SHA256), 1-hour HS256 JWT, three roles |
-| Tests | pytest, 506 tests collected, SQLite in-process (no Langflow or PostgreSQL needed); 96% line coverage over `app/services` |
+| Model | Claude Haiku 5.5 via the Claude API (`claude-haiku-5-5`) |
+| Tests | pytest, 458 tests collected, SQLite in-process (no Langflow or PostgreSQL needed); 94% line coverage over `app/services` |
 
 ### Key source files
 
@@ -56,14 +47,13 @@ The model reads messy text and matches marketplace listings. Every price, percen
 - **Node.js 18+**
 - **[uv](https://docs.astral.sh/uv/)** — to run Langflow  
   Install: `pip install uv`
-- A **Claude API key** from [console.anthropic.com](https://console.anthropic.com) (used by `Maker.json`)
-- A **Serper API key** from [serper.dev](https://serper.dev) (web price search in `Maker.json`)
+- A **Claude API key** from [console.anthropic.com](https://console.anthropic.com)
 
 ---
 
 ## Setup
 
-All commands below are **PowerShell** (Windows). Adapt as needed for macOS/Linux. On Linux, `./start.sh` and `./stop.sh` start and stop PostgreSQL, Langflow, the backend and the frontend together (all bound to `127.0.0.1`; set `LANGFLOW_DIR` to your Langflow install folder, default `~/langflow`).
+All commands below are **PowerShell** (Windows). Adapt as needed for macOS/Linux.
 
 ### 1. Start PostgreSQL
 
@@ -82,24 +72,22 @@ cd backend
 Copy-Item .env.example .env
 ```
 
-Open `backend\.env`, set `DATABASE_URL`, `JWT_SECRET` and `DEMO_PASSWORD`, then fill in the Langflow values — you will get them in step 4. The API **refuses to start** without `DATABASE_URL` and a `JWT_SECRET` of at least 32 characters.
+Open `backend\.env`, set `JWT_SECRET` (required, at least 32 characters — the API refuses to start without it) and `DEMO_PASSWORD`, then fill in the Langflow values — you will get them in step 4.
 
 ```
-DATABASE_URL=postgresql+psycopg2://procur:procur@localhost:5432/procur   ← required
-JWT_SECRET=                ← required, ≥ 32 chars: python -c "import secrets; print(secrets.token_hex(32))"
+DATABASE_URL=postgresql+psycopg2://procur:procur@localhost:5432/procur
+JWT_SECRET=                ← python -c "import secrets; print(secrets.token_hex(32))"
 DEMO_PASSWORD=             ← password for the seeded purchasing / owner / finance users
 LANGFLOW_URL=http://localhost:7860
 LANGFLOW_API_KEY=          ← fill in after step 4
-LANGFLOW_ORGANIZE_FLOW_ID= ← Organize flow: Add requests and Quick check
-LANGFLOW_MAKER_FLOW_ID=    ← maker_agent: web prices (new items) and vendor quotations
-LANGFLOW_WEBCHECK_FLOW_ID= ← legacy Web Check flow: not used for pricing; optional
+LANGFLOW_ORGANIZE_FLOW_ID= ← fill in after step 4
+LANGFLOW_WEBCHECK_FLOW_ID= ← fill in after step 4
+LANGFLOW_MAKER_FLOW_ID=    ← maker_agent: web prices + vendor quotes
 LANGFLOW_CHECKER_FLOW_ID=  ← optional until M21 (checker_agent)
 LANGFLOW_NARRATOR_FLOW_ID= ← optional until M24 (risk_narrator)
 ```
 
-An empty flow ID only disables that flow; the backend logs a warning at startup. Without `LANGFLOW_MAKER_FLOW_ID`, items that have purchase history still check, and items that need a web price are saved as `pending` with an error message.
-
-Optional: `ALLOWED_HOSTS` (default `localhost,127.0.0.1`) controls which `Host` headers the API accepts; `APP_ENV=production` makes `seed --reset` refuse to run.
+An empty flow ID only disables that flow; the backend logs a warning at startup.
 
 > **SQLite fallback** — no Docker needed:
 > set `DATABASE_URL=sqlite:///./procur.db` in `backend\.env`.
@@ -114,13 +102,7 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
-Seed demo data (purchase history + stock levels + today's 5-row flagged request, plus three users with `DEMO_PASSWORD`; `password123` if it is empty). Re-seed after upgrading from a build before M16: old password hashes no longer verify.
-
-| Username | Role | Lands on | Can |
-|---|---|---|---|
-| `purchasing` | Maker | Today | Add requests, Quick check, Vendor quotes, Import history |
-| `owner` | Checker | Review | Approve or return (not their own requests), Add requests, read the Audit Log |
-| `finance` | Viewer | History | Read Today, History and the Audit Log |
+Seed demo data (purchase history + stock levels + today's 5-row flagged request, plus the `purchasing`, `owner` and `finance` users, all with `DEMO_PASSWORD`). Re-seed after upgrading from a build before M16: old password hashes no longer verify.
 
 ```powershell
 python -m app.seed --reset
@@ -148,43 +130,34 @@ Langflow opens at `http://localhost:7860`.
 
 **One-time setup (do this once):**
 
-1. **Add your API keys:**
-   - **Profile → Settings → Model Providers → Anthropic**: paste your Claude key and save.
-   - **Profile → Settings → Global Variables**: add `SERPER_API_KEY` with your Serper key. The Serper component reads it from there; never type a key into a component (`scripts\check_langflow_secrets.py` rejects exports that do).
+1. **Add your Claude API key:**
+   Go to **Profile → Settings → Model Providers → Anthropic**, paste your key, and save.
+   Both flows call `claude-haiku-5-5` through this key.
 
-2. **Import the flows:**
+2. **Import the two flows:**
    Click **+ New flow → Import** and load each file:
    - `langflow/Organize.json` — parses messy purchase text into structured line items
-   - `langflow/Maker.json` — maker_agent: reads a vendor quotation or an item list, searches Serper, and matches marketplace listings. It supplies web prices for new items and the vendor-quotation check.
-   - `langflow/Web Check.json` — legacy, no longer used for pricing. Import it only if you want it in the health check.
+   - `langflow/Web Check.json` — searches the web for prices of unknown items
 
-   Then, on **every Language Model node** of each flow, select the provider and model (**Anthropic**, `claude-haiku-5-5`) and set temperature to 0. The committed exports do not all agree on the model (`Organize.json` was last exported with an OpenAI-compatible gateway), so check this before relying on any extraction result.
-
-3. **Check that `Maker.json` has three Chat Outputs.** The backend reads outputs named `extract_json`, `maker_json` and `serper_raw` (`langflow/maker_agent_prompts.md`). The committed export has all three (`extract_json` is wired from Language Model #1, the extract model). If a flow in Langflow is missing one, every web check fails: the row is saved as `pending` and its error contains `Flow output 'extract_json' not found`. To re-add it by hand, follow "Adding the `extract_json` output by hand" in `langflow/maker_agent_prompts.md`. `pytest tests/test_langflow_exports.py` checks the committed file.
-
-4. **Copy the flow IDs:**
+3. **Copy the flow IDs:**
    Open each flow. The UUID is in the URL:
    `http://localhost:7860/flow/<uuid>`
    Set the UUIDs in `backend\.env`:
    ```
    LANGFLOW_ORGANIZE_FLOW_ID=<uuid from Organize flow>
-   LANGFLOW_MAKER_FLOW_ID=<uuid from Maker flow>
-   LANGFLOW_WEBCHECK_FLOW_ID=<uuid from Web Check flow>   # optional, legacy
+   LANGFLOW_WEBCHECK_FLOW_ID=<uuid from Web Check flow>
    ```
 
-5. **Create a Langflow API key:**
+4. **Create a Langflow API key:**
    Go to **Profile → Settings → Langflow API Keys → Add New**, copy the key:
    ```
    LANGFLOW_API_KEY=<your-key>
    ```
 
-6. **Restart the backend** so it picks up the new `.env` values, then check the flows are wired. `python -m app.flowcheck` (from `backend\`) runs the fixtures through every configured flow:
+5. **Restart the backend** so it picks up the new `.env` values:
    ```powershell
    # Ctrl+C the uvicorn process, then:
    uvicorn app.main:app --reload
-
-   # in a second shell, from backend\:
-   python -m app.flowcheck
    ```
 
 ### 5. Start the frontend
@@ -206,16 +179,11 @@ The Vite dev server proxies all `/api/*` requests to `http://localhost:8000`.
 
 | Screen | What it does |
 |---|---|
-| **Today** | All roles. Shows today's request queue (Asia/Jakarta date) sorted by status (Flagged → New → Checked), with a risk score per row. Click any row to open the inspector. |
-| **Add requests** | `purchasing`, `owner`. Paste a WhatsApp/email message. The Organize flow parses it into line items; you review the preview and save. |
-| **Quick check** | `purchasing`. Dry-run check of pasted items against history and web prices without saving anything. |
-| **Vendor quotes** | `purchasing`. Upload a vendor quotation (.pdf with a text layer, or .xlsx, max 10 MB). Each line gets a price band, a recommendation and an evidence list, plus a 0–100 vendor score. Queue the checked lines for review. |
-| **Review** | `owner`. Every undecided row, flagged first and then by risk score. Approve or return. Approving a flagged or high-risk row (risk score 50 or more) needs a reason and an outcome tag; returning needs a reason. Owners cannot decide on a request they created. |
-| **Audit Log** | `owner`, `finance`. Append-only decision log with the evidence snapshot taken at decision time. Filter by date and export CSV. |
-| **History** | All roles. Browse past request items and purchases with filters for date range, status, and supplier. |
-| **Excel import** | `purchasing`. Upload a purchase history file (.xlsx or .csv, max 5 MB) to populate the reference-price database. Download the template from the import page. |
-
-The API enforces these roles; the UI only hides what a role cannot use. The full matrix is in [`ARCHITECTURE.md`](ARCHITECTURE.md#4-role-based-access-control-rbac-matrix).
+| **Today** | Shows today's request queue sorted by status (Flagged → New → Checked). Click any row to open the inspector. |
+| **Add requests** | Paste a WhatsApp/email message. The Organize flow parses it into line items; you review the preview and save. |
+| **Quick check** | Dry-run a single item — checks it against history and web prices without saving anything. |
+| **History** | Browse all past request items with filters for date range, status, and supplier. |
+| **Excel import** | Upload a purchase history file (.xlsx or .csv, max 5 MB) to populate the reference-price database. Download the template from the import page. |
 
 ---
 
@@ -225,7 +193,7 @@ All tests use an in-process SQLite database — no PostgreSQL or Langflow requir
 
 ```powershell
 cd backend
-pytest                        # run all 506 tests (the live one is skipped)
+pytest                        # run all 458 tests (live ones are skipped)
 pytest tests/test_pricing.py  # run a single file
 pytest -v                     # verbose output
 pytest -m live                # live flow check against the real Langflow (skipped by default)
@@ -244,7 +212,8 @@ pytest --cov --cov-report=term
 From the repo root, before every push and before the freeze:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\release_check.ps1
+powershell -ExecutionPolicy Bypass -File scripts
+elease_check.ps1
 ```
 
 It runs pytest with coverage, the coverage report, `npm run build`, the flow-export secrets check, `python -m app.flowcheck` and the claims check, and stops at the first failure. `-SkipFlowcheck` skips the live flow check when Langflow is down; that run is not a full release check.
@@ -278,7 +247,7 @@ E2 and E4 run on a throwaway seeded SQLite database, never the dev database. A s
 Run these whenever a flow changes, and before every demo:
 
 1. In Langflow, check each flow's model component: provider **Anthropic**, model `claude-haiku-5-5`, temperature 0, API key from a Langflow global variable (never typed into the component).
-2. Name each flow's Chat Outputs after its contract (`backend/tests/test_langflow_exports.py` fails if a `Maker.json` re-export drops one): `organize_json` (Organize); `extract_json`, `maker_json` and `serper_raw` (Maker); `webcheck_json` (Web Check, legacy).
+2. Name each flow's Chat Output after its contract: `organize_json` (Organize), `webcheck_json` (Web Check).
 3. Export each flow to `langflow/` and commit the JSON.
 4. Check the exports for secrets — this must pass before you commit:
    ```powershell
@@ -334,7 +303,7 @@ In the app, open **Add requests** and paste the morning's WhatsApp message:
 5. Packing tape 48mm, clear – 3 box, Warehouse, Rp 210.000/box
 ```
 
-Click **Organize** → the model structures the text. Check the item names in the preview, then click **Save**.
+Click **Organize** → Claude Haiku structures the text. Click **Save**.
 
 ### 3. Inspect a flagged row (60 s)
 
@@ -354,7 +323,7 @@ Use **Return to requester** on the oil row and **Approve** the rest.
 
 ### 6. Under the hood (20 s)
 
-Show the Organize and Maker flows in the browser. Point out that the model only reads text and matches marketplace listings — every number is computed in Python.
+Show the two Langflow flows in the browser. Point out that the model only reads text and summarises web results — every number is computed in Python.
 
 ---
 
@@ -363,8 +332,6 @@ Show the Organize and Maker flows in the browser. Point out that the model only 
 | Limit | Detail |
 |---|---|
 | Purchase history | The database is seeded with demo data. Real history must be imported via the Excel import page or the CSV import endpoint. |
-| Web check quota | Web prices use the Serper API (paid, per-search quota, needs `SERPER_API_KEY`). Quotes are cached for 60 days by normalized item name, and the seeded solenoid quotes mean the demo item needs no search. The LLM endpoints are limited to 10 requests per minute per IP. |
-| Item names from Organize | In the last eval run (3 messages, 5 rows) Organize returned English item names (`oli` → "Lubricating oil") instead of keeping Indonesian, so item-name accuracy was 20% while quantity, unit, price, supplier and department were 100%. Review the parsed names in the preview before saving. Details and fix: [`DOCS_AUDIT.md`](DOCS_AUDIT.md). |
-| Web price accuracy | Not yet measured: the E3 suite has no hand-checked prices. Treat web references as a guide, not a benchmark. |
+| Web check rate limits | The Web Check flow uses DuckDuckGo search (no API key). During a live demo it may be throttled. The 60-day quote cache and the seeded solenoid quotes mean this does not affect the demo item. |
 | Langflow model providers | The Claude API key must be entered in Langflow's **Model Providers** settings, not in `backend\.env`. The backend `.env` holds the Langflow API key and flow IDs only. |
-| Web check timeout | The backend allows 60 s per Langflow attempt and tries up to 3 times. Very slow web results return an error row with `status=pending`; recheck the row manually once the cache is warm. |
+| Web check timeout | The backend allows 60 s for a Langflow call. Very slow web results return an error row with `status=pending`; recheck the row manually once the cache is warm. |
